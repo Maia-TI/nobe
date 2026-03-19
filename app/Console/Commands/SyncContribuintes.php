@@ -13,7 +13,10 @@ class SyncContribuintes extends Command
     /**
      * O nome e a assinatura do comando.
      */
-    protected $signature = 'db:sync-contribuintes {--company= : Código da empresa no banco principal} {--all : Sincronizar todos os registros, ignorando a coluna synced}';
+    protected $signature = 'db:sync-contribuintes 
+                            {--company= : Código da empresa no banco principal} 
+                            {--all : Sincronizar todos os registros, ignorando a coluna synced}
+                            {--limit= : Limite de registros para sincronizar}';
 
     /**
      * A descrição do comando.
@@ -25,7 +28,8 @@ class SyncContribuintes extends Command
      */
     public function handle()
     {
-        $companyCode = $this->option('company');
+        // $companyCode = $this->option('company');
+        $companyCode = 57;
         $this->info("Iniciando busca de contribuintes no PostgreSQL...");
 
         $query = DB::table('export_contribuintes as ec')
@@ -43,6 +47,10 @@ class SyncContribuintes extends Command
 
         if (!$this->option('all')) {
             $query->where('ec.synced', false);
+        }
+
+        if ($this->option('limit')) {
+            $query->limit((int) $this->option('limit'));
         }
 
         $results = $query->orderBy('ec.IID_CONTRIBUINTE')->get();
@@ -83,7 +91,7 @@ class SyncContribuintes extends Command
                 $row->VNOME_FANTASIA,              // VNOME_FANTASIA (VARCHAR(100))
                 $row->VDDD_TELEFONE_1,             // VDDD_TELEFONE_1 (VARCHAR(30))
                 $row->VEMAIL,                      // VEMAIL (VARCHAR(100))
-                (int)$row->CITY_IBGE,              // ICODIGO_MUNICIPIO_IBGE (INTEGER)
+                (int)$row->ICODIGO_MUNICIPIO_IBGE, // ICODIGO_MUNICIPIO_IBGE (INTEGER)
                 str_replace('-', '', (string)$row->VCEP), // VCEP (VARCHAR(15))
                 $row->BAIRRO_NAME,                 // VBAIRRO (VARCHAR(100))
                 $row->VNUMERO,                     // VNUMERO (VARCHAR(15))
@@ -97,6 +105,13 @@ class SyncContribuintes extends Command
                 $row->VNATUREZA_JURIDICA,          // VNATUREZA_JURIDICA (VARCHAR(100))
                 $row->VPORTE                       // VPORTE (VARCHAR(100))
             ];
+
+            // Gerar log do SQL para debug
+            $sqlLog = 'SELECT ID_CONTRIBUINTE, CODCONTRIBUINTE FROM GRAVACONTRIBUINTE_3(' . implode(', ', array_map(function($p) {
+                return "'" . str_replace("'", "''", (string)$p) . "'";
+            }, $params)) . ')';
+            
+            $this->comment("\nCall: " . $sqlLog);
 
             try {
                 $stmtGrava->execute($params);

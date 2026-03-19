@@ -43,10 +43,10 @@ class UpdateExportContribuintesBrasilApi extends Command
             // Se não for CNPJ específico, busca os que estão com campos nulos ou falsos (padrão)
             $query->where(function ($q) {
                 $q->whereNull('VNATUREZA_JURIDICA')
-                  ->orWhere('LOPCAO_PELO_MEI', false)
-                  ->orWhere('LOPCAO_PELO_SIMPLES', false);
+                    ->orWhere('LOPCAO_PELO_MEI', false)
+                    ->orWhere('LOPCAO_PELO_SIMPLES', false);
             })
-            ->limit($limit);
+                ->limit($limit);
         }
 
         $records = $query->get();
@@ -57,14 +57,13 @@ class UpdateExportContribuintesBrasilApi extends Command
         }
 
         $this->info("Processando " . $records->count() . " registros com intervalo de {$sleepMs}ms...");
-        $bar = $this->output->createProgressBar($records->count());
-        $bar->start();
 
-        foreach ($records as $record) {
+        foreach ($records as $index => $record) {
             $cnpj = preg_replace('/[^0-9]/', '', $record->VCPF_CNPJ);
-            
+            $this->comment("\n[" . ($index + 1) . "/" . $records->count() . "] Consultando CNPJ: {$cnpj}...");
+
             if (strlen($cnpj) !== 14) {
-                $bar->advance();
+                $this->warn("CNPJ inválido: {$cnpj}");
                 continue;
             }
 
@@ -74,44 +73,67 @@ class UpdateExportContribuintesBrasilApi extends Command
                 if ($response->successful()) {
                     $data = $response->json();
 
-                    DB::table('export_contribuintes')
-                        ->where('IID_CONTRIBUINTE', $record->IID_CONTRIBUINTE)
-                        ->update([
-                            'VNATUREZA_JURIDICA' => $data['natureza_juridica'] ?? $record->VNATUREZA_JURIDICA,
-                            'LOPCAO_PELO_MEI' => $data['opcao_pelo_mei'] ?? $record->LOPCAO_PELO_MEI,
-                            'LOPCAO_PELO_SIMPLES' => $data['opcao_pelo_simples'] ?? $record->LOPCAO_PELO_SIMPLES,
-                            'VNOME_FANTASIA' => !empty($data['nome_fantasia']) ? $data['nome_fantasia'] : ($data['razao_social'] ?? $record->VNOME_FANTASIA),
-                            'VRAZAO_SOCIAL' => $data['razao_social'] ?? $record->VRAZAO_SOCIAL,
-                            'VPORTE' => $data['porte'] ?? $record->VPORTE,
-                            'ICODIGO_MUNICIPIO_IBGE' => $data['codigo_municipio_ibge'] ?? $record->ICODIGO_MUNICIPIO_IBGE,
-                            'VBAIRRO' => !empty($data['bairro']) ? $data['bairro'] : $record->VBAIRRO,
-                            'VCEP' => !empty($data['cep']) ? preg_replace('/[^0-9]/', '', $data['cep']) : $record->VCEP,
-                            'VLOGRADOURO' => !empty($data['logradouro']) ? $data['logradouro'] : $record->VLOGRADOURO,
-                            'VNUMERO' => !empty($data['numero']) ? $data['numero'] : $record->VNUMERO,
-                            'VCOMPLEMENTO' => !empty($data['complemento']) ? $data['complemento'] : $record->VCOMPLEMENTO,
-                            'synced' => false,
-                            'updated_at' => now(),
-                        ]);
+                    $updates = [
+                        'VNATUREZA_JURIDICA' => $data['natureza_juridica'] ?? $record->VNATUREZA_JURIDICA,
+                        'LOPCAO_PELO_MEI' => isset($data['opcao_pelo_mei']) ? (bool) $data['opcao_pelo_mei'] : $record->LOPCAO_PELO_MEI,
+                        'LOPCAO_PELO_SIMPLES' => isset($data['opcao_pelo_simples']) ? (bool) $data['opcao_pelo_simples'] : $record->LOPCAO_PELO_SIMPLES,
+                        'VNOME_FANTASIA' => !empty($data['nome_fantasia']) ? $data['nome_fantasia'] : ($data['razao_social'] ?? $record->VNOME_FANTASIA),
+                        'VRAZAO_SOCIAL' => $data['razao_social'] ?? $record->VRAZAO_SOCIAL,
+                        'VPORTE' => $data['porte'] ?? $record->VPORTE,
+                        'ICODIGO_MUNICIPIO_IBGE' => $data['codigo_municipio_ibge'] ?? $record->ICODIGO_MUNICIPIO_IBGE,
+                        'VBAIRRO' => !empty($data['bairro']) ? $data['bairro'] : $record->VBAIRRO,
+                        'VCEP' => !empty($data['cep']) ? preg_replace('/[^0-9]/', '', $data['cep']) : $record->VCEP,
+                        'VLOGRADOURO' => !empty($data['logradouro']) ? $data['logradouro'] : $record->VLOGRADOURO,
+                        'VNUMERO' => !empty($data['numero']) ? $data['numero'] : $record->VNUMERO,
+                        'VCOMPLEMENTO' => !empty($data['complemento']) ? $data['complemento'] : $record->VCOMPLEMENTO,
+                    ];
+
+                    $changes = [];
+                    foreach ($updates as $field => $newValue) {
+                        $oldValue = $record->{$field};
+
+                        // Normalização para comparação (ex: bool vs int)
+                        if ($oldValue != $newValue) {
+                            $changes[] = [
+                                'campo' => $field,
+                                'atual' => is_bool($oldValue) ? ($oldValue ? 'true' : 'false') : (string) $oldValue,
+                                'novo' => is_bool($newValue) ? ($newValue ? 'true' : 'false') : (string) $newValue,
+                            ];
+                        }
+                    }
+
+                    if (!empty($changes)) {
+                        $this->info("Mudanças encontradas para: {$record->VRAZAO_SOCIAL}");
+                        $this->table(['Campo', 'Atual', 'Novo'], $changes);
+
+                        DB::table('export_contribuintes')
+                            ->where('IID_CONTRIBUINTE', $record->IID_CONTRIBUINTE)
+                            ->update(array_merge($updates, [
+                                'synced' => false,
+                                'updated_at' => now(),
+                            ]));
+                        $this->info("Registro atualizado com sucesso!");
+                    } else {
+                        $this->info("Nenhuma mudança necessária para este registro.");
+                    }
                 } elseif ($response->status() === 404) {
-                    $this->warn("\nCNPJ {$cnpj} não encontrado na BrasilAPI.");
+                    $this->warn("CNPJ {$cnpj} não encontrado na BrasilAPI.");
                 } elseif ($response->status() === 429) {
-                    $this->error("\nRate limit atingido na BrasilAPI. Aguardando 60 segundos...");
-                    sleep(60);
+                    $this->error("Rate limit atingido na BrasilAPI. Aguardando 10 segundos...");
+                    sleep(10);
                 } else {
-                    $this->error("\nErro ao consultar CNPJ {$cnpj}: Code " . $response->status());
+                    $this->error("Erro ao consultar CNPJ {$cnpj}: Code " . $response->status());
                 }
             } catch (\Exception $e) {
-                $this->error("\nExceção ao processar CNPJ {$cnpj}: " . $e->getMessage());
+                $this->error("Exceção ao processar CNPJ {$cnpj}: " . $e->getMessage());
             }
 
-            $bar->advance();
             // Delay para evitar sobrecarga (throttling)
             if ($sleepMs > 0) {
-                usleep($sleepMs * 1000); 
+                usleep($sleepMs * 1000);
             }
         }
 
-        $bar->finish();
         $this->info("\nConcluído!");
     }
 }
