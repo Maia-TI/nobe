@@ -128,6 +128,16 @@ return [
             'engine' => null,
         ],
 
+        'firebird' => [
+            'driver'   => env('FB_DB_CONNECTION', 'firebird'),
+            'host'     => env('FB_DB_HOST', 'localhost'),
+            'port'     => env('FB_DB_PORT', '3050'),
+            'database' => env('FB_DB_DATABASE'),
+            'username' => env('FB_DB_USERNAME'),
+            'password' => env('FB_DB_PASSWORD'),
+            'charset'  => env('FB_DB_CHARSET', 'UTF8'),
+        ],
+
     ],
 
     /*

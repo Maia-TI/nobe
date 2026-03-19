@@ -47,7 +47,7 @@ class PopulateExportContribuintes extends Command
                 ident.rg as "RG",
                 NULL as "TELEFONE",
                 NULL as "INSCESTADUAL",
-                NULL as "EMAIL",
+                LEFT(ind.email, 100) as "EMAIL",
                 NULL as "DTINICIOATIVIDADE",
                 ind.id as "IDENTMIGRACAO"
             FROM unico_individuals ind
@@ -88,7 +88,7 @@ SQL;
                 NULL as "RG",
                 NULL as "TELEFONE",
                 comp.state_registration as "INSCESTADUAL",
-                NULL as "EMAIL",
+                LEFT(comp.email, 100) as "EMAIL",
                 comp.register_date as "DTINICIOATIVIDADE",
                 comp.id + {$pjOffset} as "IDENTMIGRACAO"
             FROM unico_companies comp
