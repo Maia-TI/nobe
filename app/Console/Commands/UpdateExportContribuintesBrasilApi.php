@@ -49,7 +49,7 @@ class UpdateExportContribuintesBrasilApi extends Command
                 ->limit($limit);
         }
 
-        $records = $query->get();
+        $records = $query->orderBy('IID_CONTRIBUINTE', 'asc')->get();
 
         if ($records->isEmpty()) {
             $this->info("Nenhum registro encontrado para atualizar.");

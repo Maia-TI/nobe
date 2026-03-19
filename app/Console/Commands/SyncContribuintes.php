@@ -16,7 +16,8 @@ class SyncContribuintes extends Command
     protected $signature = 'db:sync-contribuintes 
                             {--company= : Código da empresa no banco principal} 
                             {--all : Sincronizar todos os registros, ignorando a coluna synced}
-                            {--limit= : Limite de registros para sincronizar}';
+                            {--limit= : Limite de registros para sincronizar}
+                            {--cnpj= : CNPJ específico para sincronizar}';
 
     /**
      * A descrição do comando.
@@ -43,7 +44,11 @@ class SyncContribuintes extends Command
                 'neigh.name as BAIRRO_NAME',
                 'str.name as LOGRADOURO_NAME',
                 'st_type.name as TIPO_LOGRADOURO_NAME'
-            );
+            )->where('PESSOA', 'F')->limit(10);
+
+        if ($this->option('cnpj')) {
+            $query->where('ec.VCPF_CNPJ', preg_replace('/[^0-9]/', '', $this->option('cnpj')));
+        }
 
         if (!$this->option('all')) {
             $query->where('ec.synced', false);
@@ -72,21 +77,17 @@ class SyncContribuintes extends Command
         foreach ($results as $row) {
             $cpfCnpj = str_replace(['.', '-', '/'], '', (string)$row->VCPF_CNPJ);
 
-            // 1. Verificar se o registro existe usando a procedure recomendada
             $stmtVer = $pdo->prepare('SELECT CODCONTRIBUINTE FROM VERCONTRIBUINTE_5(?, ?)');
             $stmtVer->execute([$cpfCnpj, '']);
             $existing = $stmtVer->fetch();
-
-            // 2. Preparar os dados para a procedure de gravação (GRAVACONTRIBUINTE_3)
-            // A "outra decisão" (se existe ou não) é tratada pela própria procedure GRAVACONTRIBUINTE_3
-            // que geralmente faz um "CREATE OR ALTER" ou decide internamente pelo ID_CONTRIBUINTE
+            $existing = $existing?->CODCONTRIBUINTE ?? null;
 
             $stmtGrava = $pdo->prepare('SELECT ID_CONTRIBUINTE, CODCONTRIBUINTE FROM GRAVACONTRIBUINTE_3(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
 
             $params = [
                 $row->IID_CONTRIBUINTE,            // IID_CONTRIBUINTE (BIGINT)
                 $cpfCnpj,                          // VCPF_CNPJ (VARCHAR(18))
-                $row->DDATA_INICIO_ATIVIDADE,      // DDATA_INICIO_ATIVIDADE (DATE)
+                $row->DDATA_INICIO_ATIVIDADE ?? NULL,      // DDATA_INICIO_ATIVIDADE (DATE)
                 $row->VRAZAO_SOCIAL,               // VRAZAO_SOCIAL (VARCHAR(100))
                 $row->VNOME_FANTASIA,              // VNOME_FANTASIA (VARCHAR(100))
                 $row->VDDD_TELEFONE_1,             // VDDD_TELEFONE_1 (VARCHAR(30))
@@ -94,7 +95,7 @@ class SyncContribuintes extends Command
                 (int)$row->ICODIGO_MUNICIPIO_IBGE, // ICODIGO_MUNICIPIO_IBGE (INTEGER)
                 str_replace('-', '', (string)$row->VCEP), // VCEP (VARCHAR(15))
                 $row->BAIRRO_NAME,                 // VBAIRRO (VARCHAR(100))
-                $row->VNUMERO,                     // VNUMERO (VARCHAR(15))
+                $row->VNUMERO ?? NULL,                     // VNUMERO (VARCHAR(15))
                 $row->TIPO_LOGRADOURO_NAME,        // VDESCRICAO_TIPO_DE_LOGRADOURO (VARCHAR(50))
                 $row->LOGRADOURO_NAME,             // VLOGRADOURO (VARCHAR(100))
                 $row->VCOMPLEMENTO,                // VCOMPLEMENTO (VARCHAR(100))
@@ -107,15 +108,18 @@ class SyncContribuintes extends Command
             ];
 
             // Gerar log do SQL para debug
-            $sqlLog = 'SELECT ID_CONTRIBUINTE, CODCONTRIBUINTE FROM GRAVACONTRIBUINTE_3(' . implode(', ', array_map(function($p) {
+            $sqlLog = 'SELECT ID_CONTRIBUINTE, CODCONTRIBUINTE FROM GRAVACONTRIBUINTE_3(' . implode(', ', array_map(function ($p) {
                 return "'" . str_replace("'", "''", (string)$p) . "'";
             }, $params)) . ')';
-            
+
             $this->comment("\nCall: " . $sqlLog);
 
             try {
-                $stmtGrava->execute($params);
-                $result = $stmtGrava->fetch();
+                $result = null;
+                if (!$existing) {
+                    $stmtGrava->execute($params);
+                    $result = $stmtGrava->fetch();
+                }
 
                 if ($existing) {
                     $updated++;

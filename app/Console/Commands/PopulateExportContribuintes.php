@@ -63,6 +63,7 @@ class PopulateExportContribuintes extends Command
                 WHERE addressable_type = 'Person'
             ) a ON COALESCE(p.id, ind.id) = a.addressable_id AND a.rn = 1
             WHERE ind.cpf IS NOT NULL OR p.cpf_cnpj IS NOT NULL
+            ORDER BY "IID_CONTRIBUINTE" ASC
 SQL;
         $pfRecords = DB::select($queryPf);
         $this->info("Processando " . count($pfRecords) . " Pessoas Físicas...");
@@ -100,6 +101,7 @@ SQL;
                 WHERE addressable_type = 'Person'
             ) a ON COALESCE(p.id, comp.id) = a.addressable_id AND a.rn = 1
             WHERE comp.cnpj IS NOT NULL OR p.cpf_cnpj IS NOT NULL
+            ORDER BY comp.id ASC
 SQL;
         $pjRecords = DB::select($queryPj);
         $this->info("Processando " . count($pjRecords) . " Pessoas Jurídicas...");
