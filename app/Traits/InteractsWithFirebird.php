@@ -44,7 +44,7 @@ trait InteractsWithFirebird
         }
 
         if ($companyCode) {
-            $details = $this->loadFirebirdConnectionDetails($companyCode);
+            $details = (object) $this->loadFirebirdConnectionDetails($companyCode);
             
             // Usando os detalhes retornados pela procedure. 
             // Nota: Ajustar os campos conforme o retorno real da VERCONEXAO_2

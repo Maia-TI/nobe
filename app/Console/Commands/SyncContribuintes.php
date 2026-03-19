@@ -13,20 +13,22 @@ class SyncContribuintes extends Command
     /**
      * O nome e a assinatura do comando.
      */
-    protected $signature = 'db:sync-contribuintes';
+    protected $signature = 'db:sync-contribuintes {--company= : Código da empresa no banco principal}';
 
     /**
      * A descrição do comando.
      */
-    protected $description = 'Sincroniza os contribuintes diretamente com o banco Firebird';
+    protected $description = 'Sincroniza os contribuintes diretamente com o banco Firebird usando Stored Procedures';
 
     /**
      * Execute o comando.
      */
     public function handle()
     {
+        $companyCode = $this->option('company');
         $this->info("Iniciando busca de contribuintes no PostgreSQL...");
 
+        // ... query remains the same ...
         $results = DB::table('export_contribuintes as ec')
             ->leftJoin('unico_cities as city', 'ec.CODCIDADE', '=', 'city.id')
             ->leftJoin('unico_neighborhoods as neigh', 'ec.CODBAIRRO', '=', 'neigh.id')
@@ -49,6 +51,9 @@ class SyncContribuintes extends Command
             return;
         }
 
+        $this->info("Conectando ao Firebird para a empresa " . ($companyCode ?: 'Padrão') . "...");
+        $pdo = $this->initializeFirebird($companyCode);
+
         $this->info("Processando {$total} contribuintes via Stored Procedures...");
         $created = 0;
         $updated = 0;
@@ -57,7 +62,6 @@ class SyncContribuintes extends Command
             $cpfCnpj = str_replace(['.', '-', '/'], '', (string)$row->CPF_CNPJ);
             
             // 1. Verificar se o registro existe usando a procedure recomendada
-            $pdo = $this->getFirebirdConnection();
             $stmtVer = $pdo->prepare('SELECT CODCONTRIBUINTE FROM VERCONTRIBUINTE_5(?, ?)');
             $stmtVer->execute([$cpfCnpj, '']);
             $existing = $stmtVer->fetch();
