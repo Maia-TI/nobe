@@ -34,17 +34,7 @@ class SyncContribuintes extends Command
         $this->info("Iniciando busca de contribuintes no PostgreSQL...");
 
         $query = DB::table('export_contribuintes as ec')
-            ->leftJoin('unico_cities as city', 'ec.CODCIDADE', '=', 'city.id')
-            ->leftJoin('unico_neighborhoods as neigh', 'ec.CODBAIRRO', '=', 'neigh.id')
-            ->leftJoin('unico_streets as str', 'ec.CODLOGRADOURO', '=', 'str.id')
-            ->leftJoin('unico_street_types as st_type', 'str.street_type_id', '=', 'st_type.id')
-            ->select(
-                'ec.*',
-                'city.code as ICODIGO_MUNICIPIO_IBGE',
-                'neigh.name as VBAIRRO',
-                'str.name as VLOGRADOURO',
-                'st_type.name as VDESCRICAO_TIPO_DE_LOGRADOURO'
-            );
+            ->select('ec.*');
 
         if ($this->option('cnpj')) {
             $query->where('ec.VCPF_CNPJ', preg_replace('/[^0-9]/', '', $this->option('cnpj')));

@@ -41,7 +41,10 @@ class PopulateExportContribuintes extends Command
                 TRIM(COALESCE(ind.social_name, p.name)) as "VNOME_FANTASIA",
                 REGEXP_REPLACE(COALESCE(ind.cpf, p.cpf_cnpj), '[^0-9]', '', 'g') as "VCPF_CNPJ",
                 TRIM(COALESCE(ind.social_name, p.name)) as "VRAZAO_SOCIAL",
-                NULL as "ICODIGO_MUNICIPIO_IBGE",
+                city.code as "ICODIGO_MUNICIPIO_IBGE",
+                neigh.name as "VBAIRRO",
+                str.name as "VLOGRADOURO",
+                st_type.name as "VDESCRICAO_TIPO_DE_LOGRADOURO",
                 REGEXP_REPLACE(a.zip_code, '[^0-9]', '', 'g') as "VCEP",
                 a.address_city_id as "CODCIDADE",
                 a.neighborhood_id as "CODBAIRRO",
@@ -63,6 +66,10 @@ class PopulateExportContribuintes extends Command
                 FROM unico_addresses
                 WHERE addressable_type = 'Person'
             ) a ON COALESCE(p.id, ind.id) = a.addressable_id AND a.rn = 1
+            LEFT JOIN unico_cities city ON a.address_city_id = city.id
+            LEFT JOIN unico_neighborhoods neigh ON a.neighborhood_id = neigh.id
+            LEFT JOIN unico_streets str ON a.street_id = str.id
+            LEFT JOIN unico_street_types st_type ON str.street_type_id = st_type.id
             WHERE ind.cpf IS NOT NULL OR p.cpf_cnpj IS NOT NULL
             ORDER BY "IID_CONTRIBUINTE" ASC
 SQL;
@@ -79,8 +86,11 @@ SQL;
                 TRIM(COALESCE(comp.trade_name, comp.name, p.name)) as "VNOME_FANTASIA",
                 REGEXP_REPLACE(COALESCE(comp.cnpj, p.cpf_cnpj), '[^0-9]', '', 'g') as "VCPF_CNPJ",
                 TRIM(COALESCE(comp.name, comp.trade_name, p.name)) as "VRAZAO_SOCIAL",
+                city.code as "ICODIGO_MUNICIPIO_IBGE",
+                neigh.name as "VBAIRRO",
+                str.name as "VLOGRADOURO",
+                st_type.name as "VDESCRICAO_TIPO_DE_LOGRADOURO",
                 REGEXP_REPLACE(a.zip_code, '[^0-9]', '', 'g') as "VCEP",
-                NULL as "ICODIGO_MUNICIPIO_IBGE",
                 a.address_city_id as "CODCIDADE",
                 a.neighborhood_id as "CODBAIRRO",
                 a.street_id as "CODLOGRADOURO",
@@ -95,13 +105,16 @@ SQL;
                 NULL as "VNATUREZA_JURIDICA"
             FROM unico_companies comp
             LEFT JOIN unico_people p ON comp.id = p.personable_id AND p.personable_type = 'Company'
-            LEFT JOIN unico_legal_natures ln ON comp.legal_nature_id = ln.id
             LEFT JOIN (
                 SELECT addressable_id, zip_code, city_id, address_city_id, neighborhood_id, street_id, number, complement,
                        ROW_NUMBER() OVER(PARTITION BY addressable_id ORDER BY created_at DESC) as rn
                 FROM unico_addresses
                 WHERE addressable_type = 'Person'
             ) a ON COALESCE(p.id, comp.id) = a.addressable_id AND a.rn = 1
+            LEFT JOIN unico_cities city ON a.address_city_id = city.id
+            LEFT JOIN unico_neighborhoods neigh ON a.neighborhood_id = neigh.id
+            LEFT JOIN unico_streets str ON a.street_id = str.id
+            LEFT JOIN unico_street_types st_type ON str.street_type_id = st_type.id
             WHERE comp.cnpj IS NOT NULL OR p.cpf_cnpj IS NOT NULL
             ORDER BY comp.id ASC
 SQL;
