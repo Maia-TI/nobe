@@ -41,8 +41,9 @@ class PopulateExportContribuintes extends Command
                 TRIM(COALESCE(ind.social_name, p.name)) as "VNOME_FANTASIA",
                 REGEXP_REPLACE(COALESCE(ind.cpf, p.cpf_cnpj), '[^0-9]', '', 'g') as "VCPF_CNPJ",
                 TRIM(COALESCE(ind.social_name, p.name)) as "VRAZAO_SOCIAL",
+                NULL as "ICODIGO_MUNICIPIO_IBGE",
                 REGEXP_REPLACE(a.zip_code, '[^0-9]', '', 'g') as "VCEP",
-                COALESCE(a.city_id, a.address_city_id) as "CODCIDADE",
+                a.address_city_id as "CODCIDADE",
                 a.neighborhood_id as "CODBAIRRO",
                 a.street_id as "CODLOGRADOURO",
                 a.number::varchar as "VNUMERO",
@@ -79,18 +80,19 @@ SQL;
                 REGEXP_REPLACE(COALESCE(comp.cnpj, p.cpf_cnpj), '[^0-9]', '', 'g') as "VCPF_CNPJ",
                 TRIM(COALESCE(comp.name, comp.trade_name, p.name)) as "VRAZAO_SOCIAL",
                 REGEXP_REPLACE(a.zip_code, '[^0-9]', '', 'g') as "VCEP",
-                COALESCE(a.city_id, a.address_city_id) as "CODCIDADE",
+                NULL as "ICODIGO_MUNICIPIO_IBGE",
+                a.address_city_id as "CODCIDADE",
                 a.neighborhood_id as "CODBAIRRO",
                 a.street_id as "CODLOGRADOURO",
                 a.number::varchar as "VNUMERO",
                 a.complement as "VCOMPLEMENTO",
-                COALESCE(p.phone, p.mobile) as "VDDD_TELEFONE_1",
+                COALESCE(p.mobile, p.phone) as "VDDD_TELEFONE_1",
                 comp.state_registration as "VINSCESTADUAL",
                 p.email as "VEMAIL",
                 comp.commercial_registration_date as "DDATA_INICIO_ATIVIDADE",
                 COALESCE(comp.choose_simple, false) as "LOPCAO_PELO_SIMPLES",
                 false as "LOPCAO_PELO_MEI",
-                ln.name as "VNATUREZA_JURIDICA"
+                NULL as "VNATUREZA_JURIDICA"
             FROM unico_companies comp
             LEFT JOIN unico_people p ON comp.id = p.personable_id AND p.personable_type = 'Company'
             LEFT JOIN unico_legal_natures ln ON comp.legal_nature_id = ln.id

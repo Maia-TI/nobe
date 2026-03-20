@@ -14,7 +14,7 @@ class UpdateExportContribuintesBrasilApi extends Command
      * @var string
      */
     protected $signature = 'db:update-contribuintes-brasilapi 
-                            {--limit=100 : Limite de registros para processar} 
+                            {--limit=10000 : Limite de registros para processar} 
                             {--cnpj= : CNPJ específico para atualizar} 
                             {--sleep=500 : Milissegundos de espera entre requisições para não sobrecarregar a conexão}';
 
@@ -34,19 +34,12 @@ class UpdateExportContribuintesBrasilApi extends Command
         $specificCnpj = $this->option('cnpj');
         $sleepMs = (int) $this->option('sleep');
 
-        $query = DB::table('export_contribuintes')
-            ->where('PESSOA', 'J');
+        $query = DB::table('export_contribuintes');
 
         if ($specificCnpj) {
             $query->where('VCPF_CNPJ', preg_replace('/[^0-9]/', '', $specificCnpj));
         } else {
-            // Se não for CNPJ específico, busca os que estão com campos nulos ou falsos (padrão)
-            $query->where(function ($q) {
-                $q->whereNull('VNATUREZA_JURIDICA')
-                    ->orWhere('LOPCAO_PELO_MEI', false)
-                    ->orWhere('LOPCAO_PELO_SIMPLES', false);
-            })
-                ->limit($limit);
+            $query->limit($limit);
         }
 
         $records = $query->orderBy('IID_CONTRIBUINTE', 'asc')->get();
@@ -86,6 +79,9 @@ class UpdateExportContribuintesBrasilApi extends Command
                         'VLOGRADOURO' => !empty($data['logradouro']) ? $data['logradouro'] : $record->VLOGRADOURO,
                         'VNUMERO' => !empty($data['numero']) ? $data['numero'] : $record->VNUMERO,
                         'VCOMPLEMENTO' => !empty($data['complemento']) ? $data['complemento'] : $record->VCOMPLEMENTO,
+                        'DDATA_INICIO_ATIVIDADE' => !empty($data['data_inicio_atividade']) ? $data['data_inicio_atividade'] : $record->DDATA_INICIO_ATIVIDADE,
+                        'VEMAIL' => !empty($data['email']) ? $data['email'] : $record->VEMAIL,
+                        'VDDD_TELEFONE_1' => !empty($data['ddd_telefone_1']) ? $data['ddd_telefone_1'] : $record->VDDD_TELEFONE_1,
                     ];
 
                     $changes = [];

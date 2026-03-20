@@ -40,11 +40,11 @@ class SyncContribuintes extends Command
             ->leftJoin('unico_street_types as st_type', 'str.street_type_id', '=', 'st_type.id')
             ->select(
                 'ec.*',
-                'city.code as CITY_IBGE',
-                'neigh.name as BAIRRO_NAME',
-                'str.name as LOGRADOURO_NAME',
-                'st_type.name as TIPO_LOGRADOURO_NAME'
-            )->where('PESSOA', 'F')->limit(10);
+                'city.code as ICODIGO_MUNICIPIO_IBGE',
+                'neigh.name as VBAIRRO',
+                'str.name as VLOGRADOURO',
+                'st_type.name as VDESCRICAO_TIPO_DE_LOGRADOURO'
+            );
 
         if ($this->option('cnpj')) {
             $query->where('ec.VCPF_CNPJ', preg_replace('/[^0-9]/', '', $this->option('cnpj')));
@@ -58,7 +58,8 @@ class SyncContribuintes extends Command
             $query->limit((int) $this->option('limit'));
         }
 
-        $results = $query->orderBy('ec.IID_CONTRIBUINTE')->get();
+        $results = $query->orderBy('IID_CONTRIBUINTE', 'asc')
+            ->get();
 
         $total = count($results);
 
@@ -87,17 +88,17 @@ class SyncContribuintes extends Command
             $params = [
                 $row->IID_CONTRIBUINTE,            // IID_CONTRIBUINTE (BIGINT)
                 $cpfCnpj,                          // VCPF_CNPJ (VARCHAR(18))
-                $row->DDATA_INICIO_ATIVIDADE ?? NULL,      // DDATA_INICIO_ATIVIDADE (DATE)
+                $row->DDATA_INICIO_ATIVIDADE ?? NULL, // DDATA_INICIO_ATIVIDADE (DATE)
                 $row->VRAZAO_SOCIAL,               // VRAZAO_SOCIAL (VARCHAR(100))
                 $row->VNOME_FANTASIA,              // VNOME_FANTASIA (VARCHAR(100))
                 $row->VDDD_TELEFONE_1,             // VDDD_TELEFONE_1 (VARCHAR(30))
                 $row->VEMAIL,                      // VEMAIL (VARCHAR(100))
                 (int)$row->ICODIGO_MUNICIPIO_IBGE, // ICODIGO_MUNICIPIO_IBGE (INTEGER)
                 str_replace('-', '', (string)$row->VCEP), // VCEP (VARCHAR(15))
-                $row->BAIRRO_NAME,                 // VBAIRRO (VARCHAR(100))
-                $row->VNUMERO ?? NULL,                     // VNUMERO (VARCHAR(15))
-                $row->TIPO_LOGRADOURO_NAME,        // VDESCRICAO_TIPO_DE_LOGRADOURO (VARCHAR(50))
-                $row->LOGRADOURO_NAME,             // VLOGRADOURO (VARCHAR(100))
+                $row->VBAIRRO,                     // VBAIRRO (VARCHAR(100))
+                $row->VNUMERO ?? NULL,             // VNUMERO (VARCHAR(15))
+                $row->VDESCRICAO_TIPO_DE_LOGRADOURO, // VDESCRICAO_TIPO_DE_LOGRADOURO (VARCHAR(50))
+                $row->VLOGRADOURO,                 // VLOGRADOURO (VARCHAR(100))
                 $row->VCOMPLEMENTO,                // VCOMPLEMENTO (VARCHAR(100))
                 $row->VINSCESTADUAL,               // VINSCESTADUAL (VARCHAR(12))
                 (int)($row->LOPCAO_PELO_MEI ?? 0), // LOPCAO_PELO_MEI (BOOLEAN/SMALLINT 0/1)
@@ -119,6 +120,10 @@ class SyncContribuintes extends Command
                 if (!$existing) {
                     $stmtGrava->execute($params);
                     $result = $stmtGrava->fetch();
+                }
+
+                if ($result->CODCONTRIBUINTE) {
+                    $this->info("Contribuinte {$cpfCnpj} criado com sucesso!");
                 }
 
                 if ($existing) {
