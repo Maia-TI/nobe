@@ -77,8 +77,10 @@ class SyncCadastroEconomicos extends Command
                 $stmtGrava->execute($params);
                 $result = $stmtGrava->fetch(\PDO::FETCH_OBJ);
 
-                if ($result && isset($result->RESULTADO) && $result->RESULTADO == 1) {
-                    $this->info("Cadastro Econômico {$row->IID_CADECONOMICO} sincronizado com sucesso!");
+                $isSuccess = $result && isset($result->RESULTADO) && ($result->RESULTADO == 1 || $result->RESULTADO === 0 || $result->RESULTADO === "0");
+
+                if ($isSuccess) {
+                    $this->info("Cadastro Econômico {$row->IID_CADECONOMICO} sincronizado com sucesso (Resultado: {$result->RESULTADO})!");
                     
                     DB::table('expor_cadastro_economicos')
                         ->where('IID_CADECONOMICO', $row->IID_CADECONOMICO)
@@ -86,12 +88,23 @@ class SyncCadastroEconomicos extends Command
                         
                     $synced++;
                 } else {
-                    $resVal = $result->RESULTADO ?? 'Nulo';
-                    $this->error("Erro ao sincronizar {$row->IID_CADECONOMICO}: Resultado {$resVal}");
+                    $resVal = $result ? json_encode($result) : 'Nulo';
+                    $this->error("Erro ao sincronizar {$row->IID_CADECONOMICO}: Resposta {$resVal}");
                 }
 
             } catch (\Exception $e) {
-                $this->error("Erro ao processar cadastro econômico {$row->IID_CADECONOMICO}: " . $e->getMessage());
+                // Se o erro for de PK ou Unique Key, significa que o registro já está lá
+                if (str_contains($e->getMessage(), 'violation of PRIMARY or UNIQUE KEY constraint') || str_contains($e->getMessage(), 'Integrity constraint violation')) {
+                    $this->warn("Cadastro Econômico {$row->IID_CADECONOMICO} já presente no Firebird (PK/Unique violation). Marcando como sincronizado.");
+                    
+                    DB::table('expor_cadastro_economicos')
+                        ->where('IID_CADECONOMICO', $row->IID_CADECONOMICO)
+                        ->update(['synced' => true]);
+                        
+                    $synced++;
+                } else {
+                    $this->error("Erro ao processar cadastro econômico {$row->IID_CADECONOMICO}: " . $e->getMessage());
+                }
             }
         }
 
