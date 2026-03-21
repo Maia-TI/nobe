@@ -15,7 +15,6 @@ class SyncContribuintes extends Command
      */
     protected $signature = 'db:sync-contribuintes 
                             {--company= : Código da empresa no banco principal} 
-                            {--all : Sincronizar todos os registros, ignorando a coluna synced}
                             {--limit= : Limite de registros para sincronizar}
                             {--cnpj= : CNPJ específico para sincronizar}';
 
@@ -34,14 +33,11 @@ class SyncContribuintes extends Command
         $this->info("Iniciando busca de contribuintes no PostgreSQL...");
 
         $query = DB::table('export_contribuintes as ec')
+            ->where('ec.synced', false)
             ->select('ec.*');
 
         if ($this->option('cnpj')) {
             $query->where('ec.VCPF_CNPJ', preg_replace('/[^0-9]/', '', $this->option('cnpj')));
-        }
-
-        if (!$this->option('all')) {
-            $query->where('ec.synced', false);
         }
 
         if ($this->option('limit')) {
@@ -73,7 +69,7 @@ class SyncContribuintes extends Command
             $existing = $stmtVer->fetch();
             $existing = $existing?->CODCONTRIBUINTE ?? null;
 
-            $stmtGrava = $pdo->prepare('SELECT ID_CONTRIBUINTE, CODCONTRIBUINTE FROM GRAVACONTRIBUINTE_3(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+            $stmtGrava = $pdo->prepare('SELECT ID_CONTRIBUINTE, CODCONTRIBUINTE FROM MIGRACAO_GRAVACONTRIBUINTE_1(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
 
             $params = [
                 $row->IID_CONTRIBUINTE,            // IID_CONTRIBUINTE (BIGINT)
@@ -112,7 +108,7 @@ class SyncContribuintes extends Command
                     $result = $stmtGrava->fetch();
                 }
 
-                if ($result->CODCONTRIBUINTE) {
+                if ($result && isset($result->CODCONTRIBUINTE)) {
                     $this->info("Contribuinte {$cpfCnpj} criado com sucesso!");
                 }
 

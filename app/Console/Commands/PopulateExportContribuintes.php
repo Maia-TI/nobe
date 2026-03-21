@@ -132,6 +132,13 @@ SQL;
         foreach ($chunks as $chunk) {
             $data = array_map(function ($record) {
                 $item = (array) $record;
+                // Fix encoding for all string fields
+                foreach ($item as $key => $value) {
+                    if (is_string($value)) {
+                        $item[$key] = $this->fixEncoding($value);
+                    }
+                }
+
                 $item['created_at'] = now();
                 $item['updated_at'] = now();
                 $item['synced'] = false;
@@ -159,5 +166,41 @@ SQL;
                 }
             }
         }
+    }
+
+    /**
+     * Corrige problemas de encoding (double/triple UTF-8)
+     */
+    private function fixEncoding(?string $string): ?string
+    {
+        if (is_null($string) || $string === '') {
+            return $string;
+        }
+
+        // Se não for UTF-8 válido, tenta converter de ISO
+        if (!mb_check_encoding($string, 'UTF-8')) {
+            return @mb_convert_encoding($string, 'UTF-8', 'ISO-8859-1');
+        }
+
+        $decoded = $string;
+        // Padrões de dupla codificação UTF-8
+        while (str_contains($decoded, 'Ã')) {
+            $prev = $decoded;
+            // Tenta converter de UTF-8 para ISO-8859-1
+            $test = @mb_convert_encoding($decoded, 'ISO-8859-1', 'UTF-8');
+            if ($test === false || $test === $decoded) {
+                break;
+            }
+
+            // Converte de volta de ISO para UTF-8 assumindo que era double encoding
+            $test = mb_convert_encoding($test, 'UTF-8', 'ISO-8859-1');
+            if ($test === $prev) {
+                break;
+            }
+
+            $decoded = $test;
+        }
+
+        return $decoded;
     }
 }
