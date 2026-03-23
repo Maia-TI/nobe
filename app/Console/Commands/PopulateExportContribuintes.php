@@ -10,7 +10,7 @@ class PopulateExportContribuintes extends Command
     /**
      * O nome e a assinatura do comando.
      */
-    protected $signature = 'db:populate-export-contribuintes {--pj-offset=50000 : Offset para IDs de Pessoa Jurídica} {--prune : Limpa a tabela antes de popular}';
+    protected $signature = 'db:populate-export-contribuintes {--prune : Limpa a tabela antes de popular}';
 
     /**
      * A descrição do comando.
@@ -22,7 +22,6 @@ class PopulateExportContribuintes extends Command
      */
     public function handle()
     {
-        $pjOffset = (int) $this->option('pj-offset');
         $prune = $this->option('prune');
 
         if ($prune) {
@@ -35,8 +34,8 @@ class PopulateExportContribuintes extends Command
         // 1. Processar Pessoas Físicas
         $this->info("Buscando Pessoas Físicas...");
         $queryPf = <<<'SQL'
-            SELECT 
-                ind.id as "IID_CONTRIBUINTE",
+            SELECT DISTINCT ON (p.id)
+                p.id as "IID_CONTRIBUINTE",
                 'F' as "PESSOA",
                 TRIM(COALESCE(ind.social_name, p.name)) as "VNOME_FANTASIA",
                 REGEXP_REPLACE(COALESCE(ind.cpf, p.cpf_cnpj), '[^0-9]', '', 'g') as "VCPF_CNPJ",
@@ -59,19 +58,19 @@ class PopulateExportContribuintes extends Command
                 false as "LOPCAO_PELO_MEI",
                 false as "LOPCAO_PELO_SIMPLES"
             FROM unico_individuals ind
-            LEFT JOIN unico_people p ON ind.id = p.personable_id AND p.personable_type = 'Individual'
+            JOIN unico_people p ON ind.id = p.personable_id AND p.personable_type = 'Individual'
             LEFT JOIN (
                 SELECT addressable_id, zip_code, city_id, address_city_id, neighborhood_id, street_id, number, complement,
                        ROW_NUMBER() OVER(PARTITION BY addressable_id ORDER BY created_at DESC) as rn
                 FROM unico_addresses
                 WHERE addressable_type = 'Person'
-            ) a ON COALESCE(p.id, ind.id) = a.addressable_id AND a.rn = 1
+            ) a ON p.id = a.addressable_id AND a.rn = 1
             LEFT JOIN unico_cities city ON a.address_city_id = city.id
             LEFT JOIN unico_neighborhoods neigh ON a.neighborhood_id = neigh.id
             LEFT JOIN unico_streets str ON a.street_id = str.id
             LEFT JOIN unico_street_types st_type ON str.street_type_id = st_type.id
             WHERE ind.cpf IS NOT NULL OR p.cpf_cnpj IS NOT NULL
-            ORDER BY "IID_CONTRIBUINTE" ASC
+            ORDER BY p.id ASC, p.created_at DESC
 SQL;
         $pfRecords = DB::select($queryPf);
         $this->info("Processando " . count($pfRecords) . " Pessoas Físicas...");
@@ -80,8 +79,8 @@ SQL;
         // 2. Processar Pessoas Jurídicas
         $this->info("Buscando Pessoas Jurídicas...");
         $queryPj = <<<SQL
-            SELECT 
-                comp.id as "IID_CONTRIBUINTE",
+            SELECT DISTINCT ON (p.id)
+                p.id as "IID_CONTRIBUINTE",
                 'J' as "PESSOA",
                 TRIM(COALESCE(comp.trade_name, comp.name, p.name)) as "VNOME_FANTASIA",
                 REGEXP_REPLACE(COALESCE(comp.cnpj, p.cpf_cnpj), '[^0-9]', '', 'g') as "VCPF_CNPJ",
@@ -104,19 +103,19 @@ SQL;
                 false as "LOPCAO_PELO_MEI",
                 NULL as "VNATUREZA_JURIDICA"
             FROM unico_companies comp
-            LEFT JOIN unico_people p ON comp.id = p.personable_id AND p.personable_type = 'Company'
+            JOIN unico_people p ON comp.id = p.personable_id AND p.personable_type = 'Company'
             LEFT JOIN (
                 SELECT addressable_id, zip_code, city_id, address_city_id, neighborhood_id, street_id, number, complement,
                        ROW_NUMBER() OVER(PARTITION BY addressable_id ORDER BY created_at DESC) as rn
                 FROM unico_addresses
                 WHERE addressable_type = 'Person'
-            ) a ON COALESCE(p.id, comp.id) = a.addressable_id AND a.rn = 1
+            ) a ON p.id = a.addressable_id AND a.rn = 1
             LEFT JOIN unico_cities city ON a.address_city_id = city.id
             LEFT JOIN unico_neighborhoods neigh ON a.neighborhood_id = neigh.id
             LEFT JOIN unico_streets str ON a.street_id = str.id
             LEFT JOIN unico_street_types st_type ON str.street_type_id = st_type.id
             WHERE comp.cnpj IS NOT NULL OR p.cpf_cnpj IS NOT NULL
-            ORDER BY comp.id ASC
+            ORDER BY p.id ASC, p.created_at DESC
 SQL;
         $pjRecords = DB::select($queryPj);
         $this->info("Processando " . count($pjRecords) . " Pessoas Jurídicas...");

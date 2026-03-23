@@ -10,7 +10,7 @@ class PopulateExportCadastroEconomicos extends Command
     /**
      * O nome e a assinatura do comando.
      */
-    protected $signature = 'db:populate-export-cadastro-economicos {--pj-offset=50000 : Offset para IDs de Pessoa Jurídica} {--prune : Limpa a tabela antes de popular}';
+    protected $signature = 'db:populate-export-cadastro-economicos {--prune : Limpa a tabela antes de popular}';
 
     /**
      * A descrição do comando.
@@ -36,7 +36,7 @@ class PopulateExportCadastroEconomicos extends Command
         $query = <<<SQL
             SELECT 
                 er.id as "IID_CADECONOMICO",
-                ind.id as "IID_CONTRIBUINTE",
+                p.id as "IID_CONTRIBUINTE",
                 CASE 
                     WHEN er.status = 'active' THEN 1
                     WHEN er.status = 'inactive' THEN 2
