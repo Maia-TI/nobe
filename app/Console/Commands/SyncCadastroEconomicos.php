@@ -14,6 +14,7 @@ class SyncCadastroEconomicos extends Command
      * O nome e a assinatura do comando.
      */
     protected $signature = 'db:sync-cadastro-economicos 
+                            { --force=false : Força a sincronização mesmo se já estiver sincronizado}
                             {--company=57 : Código da empresa no banco principal} 
                             {--limit= : Limite de registros para sincronizar}';
 
@@ -27,6 +28,10 @@ class SyncCadastroEconomicos extends Command
      */
     public function handle()
     {
+        if (!$this->option('force')) {
+            DB::table('expor_cadastro_economicos')->update(['synced' => false]);
+        }
+
         $companyCode = (int) $this->option('company');
         $this->info("Iniciando busca de cadastros econômicos no PostgreSQL...");
 
@@ -81,26 +86,25 @@ class SyncCadastroEconomicos extends Command
 
                 if ($isSuccess) {
                     $this->info("Cadastro Econômico {$row->IID_CADECONOMICO} sincronizado com sucesso (Resultado: {$result->RESULTADO})!");
-                    
+
                     DB::table('expor_cadastro_economicos')
                         ->where('IID_CADECONOMICO', $row->IID_CADECONOMICO)
                         ->update(['synced' => true]);
-                        
+
                     $synced++;
                 } else {
                     $resVal = $result ? json_encode($result) : 'Nulo';
                     $this->error("Erro ao sincronizar {$row->IID_CADECONOMICO}: Resposta {$resVal}");
                 }
-
             } catch (\Exception $e) {
                 // Se o erro for de PK ou Unique Key, significa que o registro já está lá
                 if (str_contains($e->getMessage(), 'violation of PRIMARY or UNIQUE KEY constraint') || str_contains($e->getMessage(), 'Integrity constraint violation')) {
                     $this->warn("Cadastro Econômico {$row->IID_CADECONOMICO} já presente no Firebird (PK/Unique violation). Marcando como sincronizado.");
-                    
+
                     DB::table('expor_cadastro_economicos')
                         ->where('IID_CADECONOMICO', $row->IID_CADECONOMICO)
                         ->update(['synced' => true]);
-                        
+
                     $synced++;
                 } else {
                     $this->error("Erro ao processar cadastro econômico {$row->IID_CADECONOMICO}: " . $e->getMessage());

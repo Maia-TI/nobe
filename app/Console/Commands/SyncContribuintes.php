@@ -14,6 +14,7 @@ class SyncContribuintes extends Command
      * O nome e a assinatura do comando.
      */
     protected $signature = 'db:sync-contribuintes 
+                            { --force=false : Força a sincronização mesmo se já estiver sincronizado}
                             {--company= : Código da empresa no banco principal} 
                             {--limit= : Limite de registros para sincronizar}
                             {--cnpj= : CNPJ específico para sincronizar}';
@@ -28,6 +29,12 @@ class SyncContribuintes extends Command
      */
     public function handle()
     {
+        $force = $this->option('force');
+
+        if ($force) {
+            DB::table('export_contribuintes')->update(['synced' => false]);
+        }
+
         // $companyCode = $this->option('company');
         $companyCode = 57;
         $this->info("Iniciando busca de contribuintes no PostgreSQL...");
@@ -75,8 +82,8 @@ class SyncContribuintes extends Command
                 $row->IID_CONTRIBUINTE,            // IID_CONTRIBUINTE (BIGINT)
                 $cpfCnpj,                          // VCPF_CNPJ (VARCHAR(18))
                 $row->DDATA_INICIO_ATIVIDADE ?? NULL, // DDATA_INICIO_ATIVIDADE (DATE)
-                $row->VRAZAO_SOCIAL,               // VRAZAO_SOCIAL (VARCHAR(100))
-                $row->VNOME_FANTASIA,              // VNOME_FANTASIA (VARCHAR(100))
+                substr($row->VRAZAO_SOCIAL, 0, 100),               // VRAZAO_SOCIAL (VARCHAR(100))
+                substr($row->VNOME_FANTASIA, 0, 100),              // VNOME_FANTASIA (VARCHAR(100))
                 $row->VDDD_TELEFONE_1,             // VDDD_TELEFONE_1 (VARCHAR(30))
                 $row->VEMAIL,                      // VEMAIL (VARCHAR(100))
                 (int)$row->ICODIGO_MUNICIPIO_IBGE, // ICODIGO_MUNICIPIO_IBGE (INTEGER)
