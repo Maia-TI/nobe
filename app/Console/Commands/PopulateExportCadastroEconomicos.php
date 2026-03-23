@@ -22,7 +22,6 @@ class PopulateExportCadastroEconomicos extends Command
      */
     public function handle()
     {
-        $pjOffset = (int) $this->option('pj-offset');
         $prune = $this->option('prune');
 
         if ($prune) {
@@ -37,7 +36,7 @@ class PopulateExportCadastroEconomicos extends Command
         $query = <<<SQL
             SELECT 
                 er.id as "IID_CADECONOMICO",
-                COALESCE(ind.id, comp.id + {$pjOffset}) as "IID_CONTRIBUINTE",
+                ind.id as "IID_CONTRIBUINTE",
                 CASE 
                     WHEN er.status = 'active' THEN 1
                     WHEN er.status = 'inactive' THEN 2

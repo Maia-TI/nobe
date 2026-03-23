@@ -81,7 +81,7 @@ SQL;
         $this->info("Buscando Pessoas Jurídicas...");
         $queryPj = <<<SQL
             SELECT 
-                comp.id + {$pjOffset} as "IID_CONTRIBUINTE",
+                comp.id as "IID_CONTRIBUINTE",
                 'J' as "PESSOA",
                 TRIM(COALESCE(comp.trade_name, comp.name, p.name)) as "VNOME_FANTASIA",
                 REGEXP_REPLACE(COALESCE(comp.cnpj, p.cpf_cnpj), '[^0-9]', '', 'g') as "VCPF_CNPJ",
