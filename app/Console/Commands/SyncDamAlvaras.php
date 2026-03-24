@@ -65,6 +65,23 @@ class SyncDamAlvaras extends Command
             // MIGRACAO_DAMS_1 (IIDENTMIGRACAO, DDTCADASTRO, THRCADASTRO, IID_LANCAMENTO, VPARCELA, DDTEMISSAO, DDTVENCIMENTO, NSUBTOTAL, NCMONETARIA, NJUROS, NMULTA, NTXEXPEDIENTE, NDESCONTO, NTOTPAGAR, VNOSSONUMEROMIGRACAO, VTEXTOCODBARRAS, VNUMCODBARRAS)
             $stmt = $pdo->prepare("SELECT RESULTADO, ID_DAM FROM {$spName}(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
 
+            /* IIDENTMIGRACAO bigint,
+                DDTCADASTRO DM_DATE,
+                THRCADASTRO DM_TIME,
+                IID_LANCAMENTO bigint,
+                VPARCELA DM_VARCHAR_05,
+                DDTEMISSAO DM_DATE,
+                DDTVENCIMENTO DM_DATE,
+                NSUBTOTAL DM_NUMERIC_15_2,
+                NCMONETARIA DM_NUMERIC_15_2,
+                NJUROS DM_NUMERIC_15_2,
+                NMULTA DM_NUMERIC_15_2,
+                NTXEXPEDIENTE DM_NUMERIC_15_2,
+                NDESCONTO DM_NUMERIC_15_2,
+                NTOTPAGAR DM_NUMERIC_15_2,
+                VNOSSONUMEROMIGRACAO DM_BIGINT,
+                VTEXTOCODBARRAS DM_VARCHAR_75,
+                VNUMCODBARRAS DM_VARCHAR_50) */
             $params = [
                 (int)$row->IIDENTMIGRACAO,      // 1. IIDENTMIGRACAO bigint
                 (string)$row->DDTCADASTRO,      // 2. DDTCADASTRO DM_DATE
@@ -80,7 +97,7 @@ class SyncDamAlvaras extends Command
                 (float)$row->NTXEXPEDIENTE,     // 12. NTXEXPEDIENTE DM_NUMERIC_15_2
                 (float)$row->NDESCONTO,         // 13. NDESCONTO DM_NUMERIC_15_2
                 (float)$row->NTOTPAGAR,         // 14. NTOTPAGAR DM_NUMERIC_15_2
-                (int)$row->VNOSSONUMEROMIGRACAO,// 15. VNOSSONUMEROMIGRACAO DM_BIGINT
+                (int)$row->VNOSSONUMEROMIGRACAO, // 15. VNOSSONUMEROMIGRACAO DM_BIGINT
                 (string)$row->VTEXTOCODBARRAS,  // 16. VTEXTOCODBARRAS DM_VARCHAR_75
                 (string)$row->VNUMCODBARRAS     // 17. VNUMCODBARRAS DM_VARCHAR_50
             ];
@@ -100,26 +117,27 @@ class SyncDamAlvaras extends Command
 
                 if ($isSuccess) {
                     $this->info("DAM {$row->IIDENTMIGRACAO} (Lançamento: {$row->IID_LANCAMENTO}) sincronizado com sucesso! (ID_DAM Firebird: {$result->ID_DAM})");
-                    
+
                     DB::table('export_dam_alvaras')
                         ->where('IIDENTMIGRACAO', $row->IIDENTMIGRACAO)
                         ->update(['synced' => true]);
-                        
+
                     $synced++;
                 } else {
                     $resVal = $result ? json_encode($result) : 'NULO';
                     $this->error("Erro ao sincronizar DAM {$row->IIDENTMIGRACAO}: Resposta {$resVal}");
                 }
-
             } catch (\Exception $e) {
+
+                // throw $e;
                 // Se o erro for de PK ou Unique Key, marcamos como sincronizado
-                if (str_contains($e->getMessage(), 'violation of PRIMARY or UNIQUE KEY constraint') || str_contains($e->getMessage(), 'Integrity constraint violation')) {
+                if (str_contains($e->getMessage(), 'violation of PRIMARY or UNIQUE KEY constraint')) {
                     $this->warn("DAM {$row->IIDENTMIGRACAO} já presente no Firebird. Marcando como sincronizado.");
-                    
+
                     DB::table('export_dam_alvaras')
                         ->where('IIDENTMIGRACAO', $row->IIDENTMIGRACAO)
                         ->update(['synced' => true]);
-                        
+
                     $synced++;
                 } else {
                     $this->error("Erro ao processar DAM {$row->IIDENTMIGRACAO}: " . $e->getMessage());

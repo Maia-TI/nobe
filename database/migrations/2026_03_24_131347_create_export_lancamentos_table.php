@@ -11,14 +11,16 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('export_lancamentos', function (Blueprint $table) {
+        Schema::create('export_lancamentos_alvaras', function (Blueprint $table) {
             $table->bigInteger('IID_LANCAMENTO')->primary();
             $table->bigInteger('IID_CADECONOMICO')->index();
             $table->string('VANOEXERCICIO', 4)->nullable();
             $table->decimal('NVALIMPOSTOCALC', 15, 2)->nullable();
-            
-            // Colunas extras para controle Interno
-            $table->integer('status_nobe')->nullable(); // Status no PostgreSQL
+
+            $table->integer('STATUS')->nullable();
+            $table->string('DESCRICAO', 250)->nullable();
+            $table->string('TIPO', 50)->nullable()->index();
+
             $table->boolean('synced')->default(false);
             $table->timestamps();
         });

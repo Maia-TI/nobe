@@ -67,6 +67,7 @@ class PopulateExportDamAlvaras extends Command
             JOIN revenues r ON r.id = pt.revenue_id
             WHERE r.id IN ({$idsForSql})
               AND pp.soft_delete = false
+              AND p.status NOT IN (2,6,7,9)
             ORDER BY ppi.id ASC
 SQL;
 
@@ -83,7 +84,7 @@ SQL;
 
         $totalInserted = DB::table('export_dam_alvaras')->count();
         $this->info("Sucesso! {$totalInserted} registros em export_dam_alvaras.");
-        
+
         return Command::SUCCESS;
     }
 

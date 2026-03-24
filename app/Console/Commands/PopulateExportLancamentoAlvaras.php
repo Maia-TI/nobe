@@ -15,7 +15,7 @@ class PopulateExportLancamentoAlvaras extends Command
     /**
      * A descrição do comando.
      */
-    protected $description = 'Popula a tabela local export_lancamento_alvaras a partir de payments do PostgreSQL';
+    protected $description = 'Popula a tabela local export_lancamentos_alvaras a partir de payments do PostgreSQL';
 
     /**
      * IDs de Receita (revenues table) considerados Alvarás
@@ -31,8 +31,8 @@ class PopulateExportLancamentoAlvaras extends Command
         $idsForSql = implode(',', self::ALVARAS_REVENUE_IDS);
 
         if ($prune) {
-            $this->info("Limpando tabela export_lancamento_alvaras...");
-            DB::table('export_lancamento_alvaras')->truncate();
+            $this->info("Limpando tabela export_lancamentos_alvaras...");
+            DB::table('export_lancamentos_alvaras')->truncate();
         } else {
             $this->info("Modo incremental: buscando apenas ausentes...");
         }
@@ -45,12 +45,15 @@ class PopulateExportLancamentoAlvaras extends Command
                 er.id as "IID_CADECONOMICO",
                 p.year::varchar as "VANOEXERCICIO",
                 p.total as "NVALIMPOSTOCALC",
-                p.status as "status_nobe"
+                p.status as "STATUS",
+                p.description as "DESCRICAO",
+                r.acronym as "TIPO"
             FROM economic_registrations er
             JOIN payment_taxables pt ON pt.taxable_id = er.id AND pt.taxable_type = 'EconomicRegistration'
             JOIN payments p ON p.id = pt.payment_id
             JOIN revenues r ON r.id = pt.revenue_id
             WHERE r.id IN ({$idsForSql})
+            AND p.status NOT IN (2,6,7,9)
             ORDER BY p.id ASC
 SQL;
 
@@ -63,11 +66,11 @@ SQL;
         }
 
         $this->info("Processando {$totalFound} registros...");
-        $this->chunkedInsert('export_lancamento_alvaras', $records, $prune);
+        $this->chunkedInsert('export_lancamentos_alvaras', $records, $prune);
 
-        $totalInserted = DB::table('export_lancamento_alvaras')->count();
-        $this->info("Sucesso! {$totalInserted} lançamentos em export_lancamento_alvaras.");
-        
+        $totalInserted = DB::table('export_lancamentos_alvaras')->count();
+        $this->info("Sucesso! {$totalInserted} lançamentos em export_lancamentos_alvaras.");
+
         return Command::SUCCESS;
     }
 
