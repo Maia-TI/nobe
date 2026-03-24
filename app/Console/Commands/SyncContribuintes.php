@@ -67,72 +67,112 @@ class SyncContribuintes extends Command
         $this->info("Processando {$total} contribuintes via Stored Procedures...");
         $created = 0;
         $updated = 0;
+        $syncedIds = [];
+        $batchSize = 50; // Reduzido para maior estabilidade
 
-        foreach ($results as $row) {
+        // Preparar comandos fora do loop para performance
+        $stmtVer = $pdo->prepare('SELECT CODCONTRIBUINTE FROM VERCONTRIBUINTE_5(?, ?)');
+        $stmtGrava = $pdo->prepare('SELECT ID_CONTRIBUINTE, CODCONTRIBUINTE FROM MIGRACAO_GRAVACONTRIBUINTE_1(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+
+        if (!$pdo->inTransaction()) {
+            $pdo->beginTransaction();
+        }
+
+        $errors = 0;
+        foreach ($results as $index => $row) {
+            $progress = ($index + 1) . '/' . $total;
             $cpfCnpj = str_replace(['.', '-', '/'], '', (string)$row->VCPF_CNPJ);
 
-            $stmtVer = $pdo->prepare('SELECT CODCONTRIBUINTE FROM VERCONTRIBUINTE_5(?, ?)');
-            $stmtVer->execute([$cpfCnpj, '']);
-            $existing = $stmtVer->fetch();
-            $existing = $existing?->CODCONTRIBUINTE ?? null;
-
-            $stmtGrava = $pdo->prepare('SELECT ID_CONTRIBUINTE, CODCONTRIBUINTE FROM MIGRACAO_GRAVACONTRIBUINTE_1(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
-
-            $params = [
-                $row->IID_CONTRIBUINTE,            // IID_CONTRIBUINTE (BIGINT)
-                $cpfCnpj,                          // VCPF_CNPJ (VARCHAR(18))
-                $row->DDATA_INICIO_ATIVIDADE ?? NULL, // DDATA_INICIO_ATIVIDADE (DATE)
-                substr($row->VRAZAO_SOCIAL, 0, 100),               // VRAZAO_SOCIAL (VARCHAR(100))
-                substr($row->VNOME_FANTASIA, 0, 100),              // VNOME_FANTASIA (VARCHAR(100))
-                $row->VDDD_TELEFONE_1,             // VDDD_TELEFONE_1 (VARCHAR(30))
-                $row->VEMAIL,                      // VEMAIL (VARCHAR(100))
-                (int)$row->ICODIGO_MUNICIPIO_IBGE, // ICODIGO_MUNICIPIO_IBGE (INTEGER)
-                str_replace('-', '', (string)$row->VCEP), // VCEP (VARCHAR(15))
-                $row->VBAIRRO,                     // VBAIRRO (VARCHAR(100))
-                $row->VNUMERO ?? NULL,             // VNUMERO (VARCHAR(15))
-                $row->VDESCRICAO_TIPO_DE_LOGRADOURO, // VDESCRICAO_TIPO_DE_LOGRADOURO (VARCHAR(50))
-                $row->VLOGRADOURO,                 // VLOGRADOURO (VARCHAR(100))
-                $row->VCOMPLEMENTO,                // VCOMPLEMENTO (VARCHAR(100))
-                $row->VINSCESTADUAL,               // VINSCESTADUAL (VARCHAR(12))
-                (int)($row->LOPCAO_PELO_MEI ?? 0), // LOPCAO_PELO_MEI (BOOLEAN/SMALLINT 0/1)
-                (int)($row->LOPCAO_PELO_SIMPLES ?? 0), // LOPCAO_PELO_SIMPLES (BOOLEAN/SMALLINT 0/1)
-                $row->VREGIME_TRIBUTARIO,          // VREGIME_TRIBUTARIO (VARCHAR(100))
-                $row->VNATUREZA_JURIDICA,          // VNATUREZA_JURIDICA (VARCHAR(100))
-                $row->VPORTE                       // VPORTE (VARCHAR(100))
-            ];
-
-            // Gerar log do SQL para debug
-            $sqlLog = 'SELECT ID_CONTRIBUINTE, CODCONTRIBUINTE FROM GRAVACONTRIBUINTE_3(' . implode(', ', array_map(function ($p) {
-                return "'" . str_replace("'", "''", (string)$p) . "'";
-            }, $params)) . ')';
-
-            $this->comment("\nCall: " . $sqlLog);
-
             try {
-                $result = null;
+                // Verificar existência
+                $stmtVer->execute([$cpfCnpj, '']);
+                $existingData = $stmtVer->fetch();
+                $stmtVer->closeCursor();
+                $existing = $existingData?->CODCONTRIBUINTE ?? null;
+
                 if (!$existing) {
+                    $this->comment("[{$progress}] Checking: $cpfCnpj - Not found. Inserting...");
+
+                    $params = [
+                        $row->IID_CONTRIBUINTE,            // IID_CONTRIBUINTE (BIGINT)
+                        $cpfCnpj,                          // VCPF_CNPJ (VARCHAR(18))
+                        $row->DDATA_INICIO_ATIVIDADE ?? NULL, // DDATA_INICIO_ATIVIDADE (DATE)
+                        substr($row->VRAZAO_SOCIAL, 0, 100),               // VRAZAO_SOCIAL (VARCHAR(100))
+                        substr($row->VNOME_FANTASIA, 0, 100),              // VNOME_FANTASIA (VARCHAR(100))
+                        $row->VDDD_TELEFONE_1,             // VDDD_TELEFONE_1 (VARCHAR(30))
+                        $row->VEMAIL,                      // VEMAIL (VARCHAR(100))
+                        (int)$row->ICODIGO_MUNICIPIO_IBGE, // ICODIGO_MUNICIPIO_IBGE (INTEGER)
+                        str_replace('-', '', (string)$row->VCEP), // VCEP (VARCHAR(15))
+                        $row->VBAIRRO,                     // VBAIRRO (VARCHAR(100))
+                        $row->VNUMERO ?? NULL,             // VNUMERO (VARCHAR(15))
+                        $row->VDESCRICAO_TIPO_DE_LOGRADOURO, // VDESCRICAO_TIPO_DE_LOGRADOURO (VARCHAR(50))
+                        $row->VLOGRADOURO,                 // VLOGRADOURO (VARCHAR(100))
+                        $row->VCOMPLEMENTO,                // VCOMPLEMENTO (VARCHAR(100))
+                        $row->VINSCESTADUAL,               // VINSCESTADUAL (VARCHAR(12))
+                        (int)($row->LOPCAO_PELO_MEI ?? 0), // LOPCAO_PELO_MEI (BOOLEAN/SMALLINT 0/1)
+                        (int)($row->LOPCAO_PELO_SIMPLES ?? 0), // LOPCAO_PELO_SIMPLES (BOOLEAN/SMALLINT 0/1)
+                        $row->VREGIME_TRIBUTARIO,          // VREGIME_TRIBUTARIO (VARCHAR(100))
+                        $row->VNATUREZA_JURIDICA,          // VNATUREZA_JURIDICA (VARCHAR(100))
+                        $row->VPORTE                       // VPORTE (VARCHAR(100))
+                    ];
+
                     $stmtGrava->execute($params);
                     $result = $stmtGrava->fetch();
-                }
+                    $stmtGrava->closeCursor();
 
-                if ($result && isset($result->CODCONTRIBUINTE)) {
-                    $this->info("Contribuinte {$cpfCnpj} criado com sucesso!");
-                }
-
-                if ($existing) {
-                    $updated++;
+                    if ($result && isset($result->CODCONTRIBUINTE)) {
+                        $this->info("[{$progress}] Created: $cpfCnpj - ID: {$result->CODCONTRIBUINTE}");
+                        $created++;
+                    }
                 } else {
-                    $created++;
+                    $this->comment("[{$progress}] Checking: $cpfCnpj - Already exists (ID: $existing)");
+                    $updated++;
                 }
 
-                DB::table('export_contribuintes')
-                    ->where('IID_CONTRIBUINTE', $row->IID_CONTRIBUINTE)
-                    ->update(['synced' => true]);
+                $syncedIds[] = $row->IID_CONTRIBUINTE;
+
+                // Commit parcial para evitar locks longos e gerenciar memória
+                if (count($syncedIds) >= $batchSize) {
+                    $pdo->commit();
+                    $pdo->beginTransaction();
+
+                    DB::table('export_contribuintes')
+                        ->whereIn('IID_CONTRIBUINTE', $syncedIds)
+                        ->update(['synced' => true]);
+
+                    $syncedIds = [];
+                }
             } catch (\Exception $e) {
-                $this->error("Erro ao processar contribuinte {$cpfCnpj}: " . $e->getMessage());
+                if ($pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
+
+                $this->error("\n[{$progress}] Erro no contribuinte {$cpfCnpj}: " . $e->getMessage());
+                $errors++;
+
+                // Reiniciar transação após o erro para o próximo item
+                $pdo->beginTransaction();
             }
         }
 
-        $this->info("Sucesso! Criados: {$created}, Atualizados: {$updated}");
+        // Finalizar última leva
+        if ($pdo->inTransaction()) {
+            $pdo->commit();
+        }
+
+        if (count($syncedIds) > 0) {
+            DB::table('export_contribuintes')
+                ->whereIn('IID_CONTRIBUINTE', $syncedIds)
+                ->update(['synced' => true]);
+        }
+
+        $this->newLine();
+        $this->info("========================================");
+        $this->info("Sincronização Finalizada!");
+        $this->info("Total Processado: {$total}");
+        $this->info("Novos Criados: {$created}");
+        $this->info("Já Existentes: {$updated}");
+        $this->error("Erros: {$errors}");
+        $this->info("========================================");
     }
 }
