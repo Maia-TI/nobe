@@ -1,25 +1,18 @@
 services:
-  laravel.test:
+  app:
     build:
-      context: ./docker/8.5
-      dockerfile: Dockerfile
-      args:
-        WWWGROUP: '1000'
+      context: .
+      dockerfile: docker/prod/Dockerfile
     image: 'nobe-app:latest'
-    restart: unless-stopped
+    restart: "no"
+    stdin_open: true
+    tty: true
     environment:
-      WWWUSER: '1000'
-      LARAVEL_SAIL: 1
       APP_ENV: production
       APP_DEBUG: 'false'
-      XDEBUG_MODE: 'off'
-    volumes:
-      - '.:/var/www/html'
     depends_on:
       pgsql:
         condition: service_healthy
-    labels:
-      - "coolify.managed=true"
 
   pgsql:
     build:
@@ -30,12 +23,12 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_DB: '${DB_DATABASE:-nobe}'
-      POSTGRES_USER: '${DB_USERNAME:-sail}'
+      POSTGRES_USER: '${DB_USERNAME:-nobe}'
       POSTGRES_PASSWORD: '${DB_PASSWORD:-password}'
     volumes:
       - 'nobe-pgsql-data:/var/lib/postgresql/data'
     healthcheck:
-      test: ['CMD', 'pg_isready', '-q', '-d', '${DB_DATABASE:-nobe}', '-U', '${DB_USERNAME:-sail}']
+      test: ['CMD', 'pg_isready', '-q', '-d', '${DB_DATABASE:-nobe}', '-U', '${DB_USERNAME:-nobe}']
       retries: 3
       timeout: 5s
 
