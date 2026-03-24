@@ -15,6 +15,7 @@ class SyncDamAlvaras extends Command
      */
     protected $signature = 'db:sync-dam-alvaras 
                             {--company=57 : Código da empresa no banco principal} 
+                            {--force : Força a sincronização}
                             {--limit= : Limite de registros para sincronizar}';
 
     /**
@@ -34,6 +35,10 @@ class SyncDamAlvaras extends Command
     {
         $companyCode = (int) $this->option('company');
         $spName = self::SP_NAME;
+
+        if ($this->option('force')) {
+            DB::table('export_dam_alvaras')->update(['synced' => false]);
+        }
 
         $this->info("Iniciando busca de DAMs em export_dam_alvaras no PostgreSQL...");
 
@@ -58,30 +63,17 @@ class SyncDamAlvaras extends Command
         $this->info("Conectando ao Firebird para a empresa {$companyCode}...");
         $pdo = $this->initializeFirebird($companyCode);
 
-        $this->info("Processando {$total} DAMs via Stored Procedure {$spName}...");
+        $this->info("Processando {$total} DAMs...");
+        $bar = $this->output->createProgressBar($total);
+        $bar->start();
+        
         $synced = 0;
+        $failures = [];
+        $skipped = 0;
 
         foreach ($results as $row) {
-            // MIGRACAO_DAMS_1 (IIDENTMIGRACAO, DDTCADASTRO, THRCADASTRO, IID_LANCAMENTO, VPARCELA, DDTEMISSAO, DDTVENCIMENTO, NSUBTOTAL, NCMONETARIA, NJUROS, NMULTA, NTXEXPEDIENTE, NDESCONTO, NTOTPAGAR, VNOSSONUMEROMIGRACAO, VTEXTOCODBARRAS, VNUMCODBARRAS)
             $stmt = $pdo->prepare("SELECT RESULTADO, ID_DAM FROM {$spName}(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
 
-            /* IIDENTMIGRACAO bigint,
-                DDTCADASTRO DM_DATE,
-                THRCADASTRO DM_TIME,
-                IID_LANCAMENTO bigint,
-                VPARCELA DM_VARCHAR_05,
-                DDTEMISSAO DM_DATE,
-                DDTVENCIMENTO DM_DATE,
-                NSUBTOTAL DM_NUMERIC_15_2,
-                NCMONETARIA DM_NUMERIC_15_2,
-                NJUROS DM_NUMERIC_15_2,
-                NMULTA DM_NUMERIC_15_2,
-                NTXEXPEDIENTE DM_NUMERIC_15_2,
-                NDESCONTO DM_NUMERIC_15_2,
-                NTOTPAGAR DM_NUMERIC_15_2,
-                VNOSSONUMEROMIGRACAO DM_BIGINT,
-                VTEXTOCODBARRAS DM_VARCHAR_75,
-                VNUMCODBARRAS DM_VARCHAR_50) */
             $params = [
                 (int)$row->IIDENTMIGRACAO,      // 1. IIDENTMIGRACAO bigint
                 (string)$row->DDTCADASTRO,      // 2. DDTCADASTRO DM_DATE
@@ -102,13 +94,6 @@ class SyncDamAlvaras extends Command
                 (string)$row->VNUMCODBARRAS     // 17. VNUMCODBARRAS DM_VARCHAR_50
             ];
 
-            // Log SQL para debug
-            $sqlLog = "SELECT RESULTADO, ID_DAM FROM {$spName}(" . implode(', ', array_map(function ($p) {
-                return is_null($p) ? 'NULL' : (is_string($p) ? "'" . str_replace("'", "''", $p) . "'" : $p);
-            }, $params)) . ')';
-
-            $this->comment("\nCall: " . $sqlLog);
-
             try {
                 $stmt->execute($params);
                 $result = $stmt->fetch(\PDO::FETCH_OBJ);
@@ -116,8 +101,6 @@ class SyncDamAlvaras extends Command
                 $isSuccess = $result && isset($result->RESULTADO) && ($result->RESULTADO == 1 || $result->RESULTADO === 0 || $result->RESULTADO === '0');
 
                 if ($isSuccess) {
-                    $this->info("DAM {$row->IIDENTMIGRACAO} (Lançamento: {$row->IID_LANCAMENTO}) sincronizado com sucesso! (ID_DAM Firebird: {$result->ID_DAM})");
-
                     DB::table('export_dam_alvaras')
                         ->where('IIDENTMIGRACAO', $row->IIDENTMIGRACAO)
                         ->update(['synced' => true]);
@@ -125,27 +108,46 @@ class SyncDamAlvaras extends Command
                     $synced++;
                 } else {
                     $resVal = $result ? json_encode($result) : 'NULO';
-                    $this->error("Erro ao sincronizar DAM {$row->IIDENTMIGRACAO}: Resposta {$resVal}");
+                    $failures[] = [
+                        'id' => $row->IIDENTMIGRACAO,
+                        'lancamento' => $row->IID_LANCAMENTO,
+                        'erro' => "Resposta SP: {$resVal}"
+                    ];
                 }
             } catch (\Exception $e) {
-
-                // throw $e;
-                // Se o erro for de PK ou Unique Key, marcamos como sincronizado
                 if (str_contains($e->getMessage(), 'violation of PRIMARY or UNIQUE KEY constraint')) {
-                    $this->warn("DAM {$row->IIDENTMIGRACAO} já presente no Firebird. Marcando como sincronizado.");
-
                     DB::table('export_dam_alvaras')
                         ->where('IIDENTMIGRACAO', $row->IIDENTMIGRACAO)
                         ->update(['synced' => true]);
 
                     $synced++;
+                    $skipped++;
                 } else {
-                    $this->error("Erro ao processar DAM {$row->IIDENTMIGRACAO}: " . $e->getMessage());
+                    $failures[] = [
+                        'id' => $row->IIDENTMIGRACAO,
+                        'lancamento' => $row->IID_LANCAMENTO,
+                        'erro' => $e->getMessage()
+                    ];
                 }
             }
+            
+            $bar->advance();
         }
 
-        $this->info("Sincronização de DAMs concluída! Sucesso: {$synced}/{$total}");
+        $bar->finish();
+        $this->newLine(2);
+
+        if (count($failures) > 0) {
+            $this->error("Falhas detectadas (" . count($failures) . "):");
+            $this->table(['ID MIGRACAO', 'LANÇAMENTO', 'ERRO'], array_map(function($f) {
+                return [$f['id'], $f['lancamento'], substr($f['erro'], 0, 100)];
+            }, $failures));
+        }
+
+        $this->info("Sincronização concluída!");
+        $this->line("Sucesso: <info>{$synced}</info> (incluindo {$skipped} já existentes)");
+        $this->line("Falhas: <error>" . count($failures) . "</error>");
+        
         return Command::SUCCESS;
     }
 }

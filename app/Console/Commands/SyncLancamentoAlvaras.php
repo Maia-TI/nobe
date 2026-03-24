@@ -15,6 +15,7 @@ class SyncLancamentoAlvaras extends Command
      */
     protected $signature = 'db:sync-lancamento-alvaras 
                             {--company=57 : Código da empresa no banco principal} 
+                            {--force : Força a sincronização}
                             {--limit= : Limite de registros para sincronizar}';
 
     /**
@@ -34,6 +35,10 @@ class SyncLancamentoAlvaras extends Command
     {
         $companyCode = (int) $this->option('company');
         $spName = self::SP_NAME;
+
+        if ($this->option('force')) {
+            DB::table('export_lancamentos_alvaras')->update(['synced' => false]);
+        }
 
         $this->info("Iniciando busca de lançamentos em export_lancamentos_alvaras no PostgreSQL...");
 
@@ -58,33 +63,16 @@ class SyncLancamentoAlvaras extends Command
         $this->info("Conectando ao Firebird para a empresa {$companyCode}...");
         $pdo = $this->initializeFirebird($companyCode);
 
-        $this->info("Processando {$total} lançamentos via Stored Procedure {$spName}...");
+        $this->info("Processando {$total} lançamentos...");
+        $bar = $this->output->createProgressBar($total);
+        $bar->start();
+
         $synced = 0;
+        $failures = [];
+        $skipped = 0;
 
         foreach ($results as $row) {
             $stmt = $pdo->prepare("SELECT RESULTADO, ID_LANCAMENTO FROM {$spName}(?, ?, ?, ?, ?, ?)");
-            /*
-            0,  -- simulated
-            1,  -- opened 
-            2,  -- canceled  → sai
-            3,  -- exempt
-            4,  -- active_debt
-            5,  -- paid
-            6,  -- annulled → sai 
-            7,  -- excluded → sai
-            8,  -- exemption
-            9,  -- immunity → sai
-            10, -- incentive
-            11, -- remission
-            12, -- suspended
-            13, -- parceled
-            14, -- iss
-            15, -- without_movement
-            16, -- supervised
-            17, -- donation_in_payments
-            18, -- prescribed
-            19, -- transferred
-            20  -- amnistied */
             $status = [
                 1 => 'aberto',
                 2 => 'cancelado',
@@ -117,13 +105,6 @@ class SyncLancamentoAlvaras extends Command
                 (string)substr($row->DESCRICAO, 0, 250),
             ];
 
-            // Log SQL para debug
-            $sqlLog = "SELECT RESULTADO, ID_LANCAMENTO FROM {$spName}(" . implode(', ', array_map(function ($p) {
-                return is_null($p) ? 'NULL' : (is_string($p) ? "'" . str_replace("'", "''", $p) . "'" : $p);
-            }, $params)) . ')';
-
-            $this->comment("\nCall: " . $sqlLog);
-
             try {
                 $stmt->execute($params);
                 $result = $stmt->fetch(\PDO::FETCH_OBJ);
@@ -131,34 +112,57 @@ class SyncLancamentoAlvaras extends Command
                 $isSuccess = $result && isset($result->RESULTADO) && ($result->RESULTADO == 1 || $result->RESULTADO === 0 || $result->RESULTADO === '0');
 
                 if ($isSuccess) {
-                    $this->info("Lançamento {$row->IID_LANCAMENTO} sincronizado com sucesso! (ID_LANCTO Firebird: {$result->ID_LANCAMENTO})");
-
                     DB::table('export_lancamentos_alvaras')
                         ->where('IID_LANCAMENTO', $row->IID_LANCAMENTO)
-                        ->update(['synced' => true]);
+                        ->update([
+                            'synced' => true,
+                            'id_janela_unica' => $result->ID_LANCAMENTO ?? null
+                        ]);
 
                     $synced++;
                 } else {
                     $resVal = $result ? json_encode($result) : 'NULO';
-                    $this->error("Erro ao sincronizar {$row->IID_LANCAMENTO}: Resposta {$resVal}");
+                    $failures[] = [
+                        'id' => $row->IID_LANCAMENTO,
+                        'econ' => $row->IID_CADECONOMICO,
+                        'erro' => "Resposta SP: {$resVal}"
+                    ];
                 }
             } catch (\Exception $e) {
                 // Se o erro for de PK ou Unique Key, marcamos como sincronizado
                 if (str_contains($e->getMessage(), 'violation of PRIMARY or UNIQUE KEY constraint') || str_contains($e->getMessage(), 'Integrity constraint violation')) {
-                    $this->warn("Lançamento {$row->IID_LANCAMENTO} já presente no Firebird. Marcando como sincronizado.");
-
                     DB::table('export_lancamentos_alvaras')
                         ->where('IID_LANCAMENTO', $row->IID_LANCAMENTO)
                         ->update(['synced' => true]);
 
                     $synced++;
+                    $skipped++;
                 } else {
-                    $this->error("Erro ao processar lançamento {$row->IID_LANCAMENTO}: " . $e->getMessage());
+                    $failures[] = [
+                        'id' => $row->IID_LANCAMENTO,
+                        'econ' => $row->IID_CADECONOMICO,
+                        'erro' => $e->getMessage()
+                    ];
                 }
             }
+
+            $bar->advance();
         }
 
-        $this->info("Sincronização concluída! Sucesso: {$synced}/{$total}");
+        $bar->finish();
+        $this->newLine(2);
+
+        if (count($failures) > 0) {
+            $this->error("Falhas detectadas (" . count($failures) . "):");
+            $this->table(['LANÇAMENTO', 'ECONOMICO', 'ERRO'], array_map(function($f) {
+                return [$f['id'], $f['econ'], substr($f['erro'], 0, 100)];
+            }, $failures));
+        }
+
+        $this->info("Sincronização concluída!");
+        $this->line("Sucesso: <info>{$synced}</info> (incluindo {$skipped} já existentes)");
+        $this->line("Falhas: <error>" . count($failures) . "</error>");
+
         return Command::SUCCESS;
     }
 }

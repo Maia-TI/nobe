@@ -64,13 +64,16 @@ class SyncContribuintes extends Command
         $this->info("Conectando ao Firebird para a empresa " . ($companyCode ?: 'Padrão') . "...");
         $pdo = $this->initializeFirebird($companyCode);
 
-        $this->info("Processando {$total} contribuintes via Stored Procedures...");
+        $this->info("Processando {$total} contribuintes...");
+        $bar = $this->output->createProgressBar($total);
+        $bar->start();
+
         $created = 0;
         $updated = 0;
+        $failures = [];
         $syncedIds = [];
-        $batchSize = 50; // Reduzido para maior estabilidade
+        $batchSize = 50; 
 
-        // Preparar comandos fora do loop para performance
         $stmtVer = $pdo->prepare('SELECT CODCONTRIBUINTE FROM VERCONTRIBUINTE_5(?, ?)');
         $stmtGrava = $pdo->prepare('SELECT ID_CONTRIBUINTE, CODCONTRIBUINTE FROM MIGRACAO_GRAVACONTRIBUINTE_1(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
 
@@ -78,21 +81,16 @@ class SyncContribuintes extends Command
             $pdo->beginTransaction();
         }
 
-        $errors = 0;
         foreach ($results as $index => $row) {
-            $progress = ($index + 1) . '/' . $total;
             $cpfCnpj = str_replace(['.', '-', '/'], '', (string)$row->VCPF_CNPJ);
 
             try {
-                // Verificar existência
                 $stmtVer->execute([$cpfCnpj, '']);
                 $existingData = $stmtVer->fetch();
                 $stmtVer->closeCursor();
                 $existing = $existingData?->CODCONTRIBUINTE ?? null;
 
                 if (!$existing) {
-                    $this->comment("[{$progress}] Checking: $cpfCnpj - Not found. Inserting...");
-
                     $params = [
                         $row->IID_CONTRIBUINTE,            // IID_CONTRIBUINTE (BIGINT)
                         $cpfCnpj,                          // VCPF_CNPJ (VARCHAR(18))
@@ -121,17 +119,16 @@ class SyncContribuintes extends Command
                     $stmtGrava->closeCursor();
 
                     if ($result && isset($result->CODCONTRIBUINTE)) {
-                        $this->info("[{$progress}] Created: $cpfCnpj - ID: {$result->CODCONTRIBUINTE}");
                         $created++;
+                    } else {
+                        $failures[] = ['id' => $row->IID_CONTRIBUINTE, 'nome' => $row->VRAZAO_SOCIAL, 'erro' => 'Falha ao gravar (CODCONTRIBUINTE nulo)'];
                     }
                 } else {
-                    $this->comment("[{$progress}] Checking: $cpfCnpj - Already exists (ID: $existing)");
                     $updated++;
                 }
 
                 $syncedIds[] = $row->IID_CONTRIBUINTE;
 
-                // Commit parcial para evitar locks longos e gerenciar memória
                 if (count($syncedIds) >= $batchSize) {
                     $pdo->commit();
                     $pdo->beginTransaction();
@@ -147,15 +144,16 @@ class SyncContribuintes extends Command
                     $pdo->rollBack();
                 }
 
-                $this->error("\n[{$progress}] Erro no contribuinte {$cpfCnpj}: " . $e->getMessage());
-                $errors++;
-
-                // Reiniciar transação após o erro para o próximo item
+                $failures[] = ['id' => $row->IID_CONTRIBUINTE, 'nome' => $row->VRAZAO_SOCIAL, 'erro' => $e->getMessage()];
                 $pdo->beginTransaction();
             }
+            
+            $bar->advance();
         }
 
-        // Finalizar última leva
+        $bar->finish();
+        $this->newLine(2);
+
         if ($pdo->inTransaction()) {
             $pdo->commit();
         }
@@ -166,13 +164,18 @@ class SyncContribuintes extends Command
                 ->update(['synced' => true]);
         }
 
-        $this->newLine();
-        $this->info("========================================");
+        if (count($failures) > 0) {
+            $this->error("Falhas detectadas (" . count($failures) . "):");
+            $this->table(['ID', 'RAZÃO SOCIAL', 'ERRO'], array_map(function($f) {
+                return [$f['id'], substr($f['nome'], 0, 50), substr($f['erro'], 0, 80)];
+            }, $failures));
+        }
+
         $this->info("Sincronização Finalizada!");
-        $this->info("Total Processado: {$total}");
-        $this->info("Novos Criados: {$created}");
-        $this->info("Já Existentes: {$updated}");
-        $this->error("Erros: {$errors}");
-        $this->info("========================================");
+        $this->line("Total Processado: {$total}");
+        $this->line("Novos Criados: <info>{$created}</info>");
+        $this->line("Já Existentes: <comment>{$updated}</comment>");
+        $this->line("Falhas: <error>" . count($failures) . "</error>");
+
     }
 }
