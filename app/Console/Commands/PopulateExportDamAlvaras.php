@@ -41,7 +41,7 @@ class PopulateExportDamAlvaras extends Command
 
         // Esta query usa as tabelas reais do Nobe para encontrar DAMs gerados
         $query = <<<SQL
-            SELECT 
+            SELECT DISTINCT ON (ppi.id)
                 ppi.id as "IIDENTMIGRACAO",
                 pp.payment_id as "IID_LANCAMENTO",
                 ppi.created_at::date as "DDTCADASTRO",
@@ -63,7 +63,8 @@ class PopulateExportDamAlvaras extends Command
             FROM payment_parcel_identifiers ppi
             JOIN payment_parcels pp ON ppi.payable_id = pp.id AND ppi.payable_type = 'PaymentParcel'
             JOIN payments p ON p.id = pp.payment_id
-            JOIN payment_taxables pt ON pt.payment_id = p.id
+            JOIN payment_taxables pt ON pt.payment_id = p.id AND pt.taxable_type = 'EconomicRegistration'
+            JOIN economic_registrations er ON er.id = pt.taxable_id
             JOIN revenues r ON r.id = pt.revenue_id
             WHERE r.id IN ({$idsForSql})
               AND pp.soft_delete = false

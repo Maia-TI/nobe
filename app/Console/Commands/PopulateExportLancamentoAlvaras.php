@@ -40,7 +40,7 @@ class PopulateExportLancamentoAlvaras extends Command
         $this->info("Buscando Lançamentos de Alvarás (IDs Receita: {$idsForSql})...");
 
         $query = <<<SQL
-            SELECT 
+            SELECT DISTINCT ON (p.id)
                 p.id as "IID_LANCAMENTO",
                 er.id as "IID_CADECONOMICO",
                 p.year::varchar as "VANOEXERCICIO",
