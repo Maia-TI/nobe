@@ -69,7 +69,6 @@ class SyncLancamentoAlvaras extends Command
 
         $synced = 0;
         $failures = [];
-        $skipped = 0;
 
         foreach ($results as $row) {
             $stmt = $pdo->prepare("SELECT RESULTADO, ID_LANCAMENTO FROM {$spName}(?, ?, ?, ?, ?, ?)");
@@ -105,6 +104,10 @@ class SyncLancamentoAlvaras extends Command
                 (string)substr($row->DESCRICAO, 0, 250),
             ];
 
+            $sqlLog = "SELECT RESULTADO, ID_LANCAMENTO FROM {$spName}(" . implode(', ', array_map(function ($p) {
+                return is_null($p) ? 'NULL' : (is_string($p) ? "'" . str_replace("'", "''", $p) . "'" : $p);
+            }, $params)) . ')';
+
             try {
                 $stmt->execute($params);
                 $result = $stmt->fetch(\PDO::FETCH_OBJ);
@@ -125,25 +128,17 @@ class SyncLancamentoAlvaras extends Command
                     $failures[] = [
                         'id' => $row->IID_LANCAMENTO,
                         'econ' => $row->IID_CADECONOMICO,
-                        'erro' => "Resposta SP: {$resVal}"
+                        'erro' => "Resposta SP: {$resVal}",
+                        'sql' => $sqlLog
                     ];
                 }
             } catch (\Exception $e) {
-                // Se o erro for de PK ou Unique Key, marcamos como sincronizado
-                if (str_contains($e->getMessage(), 'violation of PRIMARY or UNIQUE KEY constraint') || str_contains($e->getMessage(), 'Integrity constraint violation')) {
-                    DB::table('export_lancamentos_alvaras')
-                        ->where('IID_LANCAMENTO', $row->IID_LANCAMENTO)
-                        ->update(['synced' => true]);
-
-                    $synced++;
-                    $skipped++;
-                } else {
-                    $failures[] = [
-                        'id' => $row->IID_LANCAMENTO,
-                        'econ' => $row->IID_CADECONOMICO,
-                        'erro' => $e->getMessage()
-                    ];
-                }
+                $failures[] = [
+                    'id' => $row->IID_LANCAMENTO,
+                    'econ' => $row->IID_CADECONOMICO,
+                    'erro' => substr($e->getMessage(), 0, 150),
+                    'sql' => $sqlLog
+                ];
             }
 
             $bar->advance();
@@ -154,13 +149,13 @@ class SyncLancamentoAlvaras extends Command
 
         if (count($failures) > 0) {
             $this->error("Falhas detectadas (" . count($failures) . "):");
-            $this->table(['LANÇAMENTO', 'ECONOMICO', 'ERRO'], array_map(function($f) {
-                return [$f['id'], $f['econ'], substr($f['erro'], 0, 100)];
+            $this->table(['LANÇAMENTO', 'ECONOMICO', 'ERRO', 'SQL'], array_map(function ($f) {
+                return [$f['id'], $f['econ'], substr($f['erro'], 0, 80), $f['sql']];
             }, $failures));
         }
 
         $this->info("Sincronização concluída!");
-        $this->line("Sucesso: <info>{$synced}</info> (incluindo {$skipped} já existentes)");
+        $this->line("Sucesso: <info>{$synced}</info>");
         $this->line("Falhas: <error>" . count($failures) . "</error>");
 
         return Command::SUCCESS;

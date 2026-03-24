@@ -69,7 +69,6 @@ class SyncDamAlvaras extends Command
         
         $synced = 0;
         $failures = [];
-        $skipped = 0;
 
         foreach ($results as $row) {
             $stmt = $pdo->prepare("SELECT RESULTADO, ID_DAM FROM {$spName}(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
@@ -94,6 +93,10 @@ class SyncDamAlvaras extends Command
                 (string)$row->VNUMCODBARRAS     // 17. VNUMCODBARRAS DM_VARCHAR_50
             ];
 
+            $sqlLog = "SELECT RESULTADO, ID_DAM FROM {$spName}(" . implode(', ', array_map(function ($p) {
+                return is_null($p) ? 'NULL' : (is_string($p) ? "'" . str_replace("'", "''", $p) . "'" : $p);
+            }, $params)) . ')';
+
             try {
                 $stmt->execute($params);
                 $result = $stmt->fetch(\PDO::FETCH_OBJ);
@@ -111,24 +114,19 @@ class SyncDamAlvaras extends Command
                     $failures[] = [
                         'id' => $row->IIDENTMIGRACAO,
                         'lancamento' => $row->IID_LANCAMENTO,
-                        'erro' => "Resposta SP: {$resVal}"
+                        'erro' => "Resposta SP: {$resVal}",
+                        'sql' => $sqlLog
                     ];
                 }
             } catch (\Exception $e) {
-                if (str_contains($e->getMessage(), 'violation of PRIMARY or UNIQUE KEY constraint')) {
-                    DB::table('export_dam_alvaras')
-                        ->where('IIDENTMIGRACAO', $row->IIDENTMIGRACAO)
-                        ->update(['synced' => true]);
-
-                    $synced++;
-                    $skipped++;
-                } else {
-                    $failures[] = [
-                        'id' => $row->IIDENTMIGRACAO,
-                        'lancamento' => $row->IID_LANCAMENTO,
-                        'erro' => $e->getMessage()
-                    ];
-                }
+                $failures[] = [
+                    'id' => $row->IIDENTMIGRACAO,
+                    'lancamento' => $row->IID_LANCAMENTO,
+                    'erro' => (str_contains($e->getMessage(), 'violation of PRIMARY or UNIQUE KEY constraint') || str_contains($e->getMessage(), 'Integrity constraint violation')) 
+                        ? "Registro já presente ou erro de integridade: " . substr($e->getMessage(), 0, 150)
+                        : $e->getMessage(),
+                    'sql' => $sqlLog
+                ];
             }
             
             $bar->advance();
@@ -139,13 +137,13 @@ class SyncDamAlvaras extends Command
 
         if (count($failures) > 0) {
             $this->error("Falhas detectadas (" . count($failures) . "):");
-            $this->table(['ID MIGRACAO', 'LANÇAMENTO', 'ERRO'], array_map(function($f) {
-                return [$f['id'], $f['lancamento'], substr($f['erro'], 0, 100)];
+            $this->table(['ID MIGRACAO', 'LANÇAMENTO', 'ERRO', 'SQL'], array_map(function($f) {
+                return [$f['id'], $f['lancamento'], substr($f['erro'], 0, 80), $f['sql']];
             }, $failures));
         }
 
         $this->info("Sincronização concluída!");
-        $this->line("Sucesso: <info>{$synced}</info> (incluindo {$skipped} já existentes)");
+        $this->line("Sucesso: <info>{$synced}</info>");
         $this->line("Falhas: <error>" . count($failures) . "</error>");
         
         return Command::SUCCESS;

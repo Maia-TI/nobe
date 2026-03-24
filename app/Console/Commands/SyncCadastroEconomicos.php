@@ -56,8 +56,12 @@ class SyncCadastroEconomicos extends Command
         $this->info("Conectando ao Firebird para a empresa {$companyCode}...");
         $pdo = $this->initializeFirebird($companyCode);
 
-        $this->info("Processando {$total} cadastros econômicos via Stored Procedures...");
+        $this->info("Processando {$total} cadastros econômicos...");
+        $bar = $this->output->createProgressBar($total);
+        $bar->start();
+
         $synced = 0;
+        $failures = [];
 
         foreach ($results as $row) {
             $stmtGrava = $pdo->prepare('SELECT RESULTADO, ID_CADECONOMICO FROM MIGRACAO_GRAVACADECONOMICO_1(?, ?, ?, ?, ?, ?)');
@@ -71,12 +75,9 @@ class SyncCadastroEconomicos extends Command
                 $row->VOBSERVACOES               // VOBSERVACOES varchar(250)
             ];
 
-            // Gerar log do SQL para debug
             $sqlLog = 'SELECT RESULTADO, ID_CADECONOMICO FROM MIGRACAO_GRAVACADECONOMICO_1(' . implode(', ', array_map(function ($p) {
                 return is_null($p) ? 'NULL' : "'" . str_replace("'", "''", (string)$p) . "'";
             }, $params)) . ')';
-
-            $this->comment("\nCall: " . $sqlLog);
 
             try {
                 $stmtGrava->execute($params);
@@ -85,8 +86,6 @@ class SyncCadastroEconomicos extends Command
                 $isSuccess = $result && isset($result->RESULTADO) && ($result->RESULTADO == 1 || $result->RESULTADO === 0 || $result->RESULTADO === "0");
 
                 if ($isSuccess) {
-                    $this->info("Cadastro Econômico {$row->IID_CADECONOMICO} sincronizado com sucesso (Resultado: {$result->RESULTADO})!");
-
                     DB::table('expor_cadastro_economicos')
                         ->where('IID_CADECONOMICO', $row->IID_CADECONOMICO)
                         ->update(['synced' => true]);
@@ -94,24 +93,41 @@ class SyncCadastroEconomicos extends Command
                     $synced++;
                 } else {
                     $resVal = $result ? json_encode($result) : 'Nulo';
-                    $this->error("Erro ao sincronizar {$row->IID_CADECONOMICO}: Resposta {$resVal}");
+                    $failures[] = [
+                        'id' => $row->IID_CADECONOMICO,
+                        'contribuinte' => $row->IID_CONTRIBUINTE,
+                        'erro' => "Resposta SP: {$resVal}",
+                        'sql' => $sqlLog
+                    ];
                 }
             } catch (\Exception $e) {
-                // Se o erro for de PK ou Unique Key, significa que o registro já está lá
-                if (str_contains($e->getMessage(), 'violation of PRIMARY or UNIQUE KEY constraint') || str_contains($e->getMessage(), 'Integrity constraint violation')) {
-                    $this->warn("Cadastro Econômico {$row->IID_CADECONOMICO} já presente no Firebird (PK/Unique violation). Marcando como sincronizado.");
-
-                    DB::table('expor_cadastro_economicos')
-                        ->where('IID_CADECONOMICO', $row->IID_CADECONOMICO)
-                        ->update(['synced' => true]);
-
-                    $synced++;
-                } else {
-                    $this->error("Erro ao processar cadastro econômico {$row->IID_CADECONOMICO}: " . $e->getMessage());
-                }
+                $failures[] = [
+                    'id' => $row->IID_CADECONOMICO,
+                    'contribuinte' => $row->IID_CONTRIBUINTE,
+                    'erro' => (str_contains($e->getMessage(), 'violation of PRIMARY or UNIQUE KEY constraint') || str_contains($e->getMessage(), 'Integrity constraint violation')) 
+                        ? "Registro já presente ou erro de integridade: " . substr($e->getMessage(), 0, 150)
+                        : $e->getMessage(),
+                    'sql' => $sqlLog
+                ];
             }
+            
+            $bar->advance();
         }
 
-        $this->info("Sucesso! Sincronizados: {$synced}");
+        $bar->finish();
+        $this->newLine(2);
+
+        if (count($failures) > 0) {
+            $this->error("Falhas detectadas (" . count($failures) . "):");
+            $this->table(['ID ECON', 'CONTRIBUINTE', 'ERRO', 'SQL'], array_map(function($f) {
+                return [$f['id'], $f['contribuinte'], substr($f['erro'], 0, 80), $f['sql']];
+            }, $failures));
+        }
+
+        $this->info("Sincronização concluída!");
+        $this->line("Sucesso: <info>{$synced}</info>");
+        $this->line("Falhas: <error>" . count($failures) . "</error>");
+        
+        return Command::SUCCESS;
     }
 }

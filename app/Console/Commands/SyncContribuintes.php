@@ -72,9 +72,9 @@ class SyncContribuintes extends Command
         $updated = 0;
         $failures = [];
         $syncedIds = [];
-        $batchSize = 50; 
+        $batchSize = 50;
 
-        $stmtVer = $pdo->prepare('SELECT CODCONTRIBUINTE FROM VERCONTRIBUINTE_5(?, ?)');
+        /// $stmtVer = $pdo->prepare('SELECT CODCONTRIBUINTE FROM VERCONTRIBUINTE_5(?, ?)');
         $stmtGrava = $pdo->prepare('SELECT ID_CONTRIBUINTE, CODCONTRIBUINTE FROM MIGRACAO_GRAVACONTRIBUINTE_1(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
 
         if (!$pdo->inTransaction()) {
@@ -85,10 +85,11 @@ class SyncContribuintes extends Command
             $cpfCnpj = str_replace(['.', '-', '/'], '', (string)$row->VCPF_CNPJ);
 
             try {
-                $stmtVer->execute([$cpfCnpj, '']);
-                $existingData = $stmtVer->fetch();
-                $stmtVer->closeCursor();
-                $existing = $existingData?->CODCONTRIBUINTE ?? null;
+                // $stmtVer->execute([$cpfCnpj, '']);
+                // $existingData = $stmtVer->fetch();
+                // $stmtVer->closeCursor();
+                // $existing = $existingData?->CODCONTRIBUINTE ?? null;
+                $existing = false;
 
                 if (!$existing) {
                     $params = [
@@ -121,7 +122,16 @@ class SyncContribuintes extends Command
                     if ($result && isset($result->CODCONTRIBUINTE)) {
                         $created++;
                     } else {
-                        $failures[] = ['id' => $row->IID_CONTRIBUINTE, 'nome' => $row->VRAZAO_SOCIAL, 'erro' => 'Falha ao gravar (CODCONTRIBUINTE nulo)'];
+                        $sqlLog = 'SELECT ID_CONTRIBUINTE, CODCONTRIBUINTE FROM MIGRACAO_GRAVACONTRIBUINTE_1(' . implode(', ', array_map(function ($p) {
+                            return is_null($p) ? 'NULL' : "'" . str_replace("'", "''", (string)$p) . "'";
+                        }, $params)) . ')';
+
+                        $failures[] = [
+                            'id' => $row->IID_CONTRIBUINTE,
+                            'nome' => $row->VRAZAO_SOCIAL,
+                            'erro' => 'Falha ao gravar (CODCONTRIBUINTE nulo)',
+                            'sql' => $sqlLog
+                        ];
                     }
                 } else {
                     $updated++;
@@ -144,10 +154,19 @@ class SyncContribuintes extends Command
                     $pdo->rollBack();
                 }
 
-                $failures[] = ['id' => $row->IID_CONTRIBUINTE, 'nome' => $row->VRAZAO_SOCIAL, 'erro' => $e->getMessage()];
+                $sqlLog = isset($params) ? 'SELECT ID_CONTRIBUINTE, CODCONTRIBUINTE FROM MIGRACAO_GRAVACONTRIBUINTE_1(' . implode(', ', array_map(function ($p) {
+                    return is_null($p) ? 'NULL' : "'" . str_replace("'", "''", (string)$p) . "'";
+                }, $params)) . ')' : 'N/A';
+
+                $failures[] = [
+                    'id' => $row->IID_CONTRIBUINTE,
+                    'nome' => $row->VRAZAO_SOCIAL,
+                    'erro' => $e->getMessage(),
+                    'sql' => $sqlLog
+                ];
                 $pdo->beginTransaction();
             }
-            
+
             $bar->advance();
         }
 
@@ -166,8 +185,8 @@ class SyncContribuintes extends Command
 
         if (count($failures) > 0) {
             $this->error("Falhas detectadas (" . count($failures) . "):");
-            $this->table(['ID', 'RAZÃO SOCIAL', 'ERRO'], array_map(function($f) {
-                return [$f['id'], substr($f['nome'], 0, 50), substr($f['erro'], 0, 80)];
+            $this->table(['ID', 'RAZÃO SOCIAL', 'ERRO', 'SQL'], array_map(function ($f) {
+                return [$f['id'], substr($f['nome'], 0, 50), substr($f['erro'], 0, 80), $f['sql']];
             }, $failures));
         }
 
@@ -176,6 +195,5 @@ class SyncContribuintes extends Command
         $this->line("Novos Criados: <info>{$created}</info>");
         $this->line("Já Existentes: <comment>{$updated}</comment>");
         $this->line("Falhas: <error>" . count($failures) . "</error>");
-
     }
 }
