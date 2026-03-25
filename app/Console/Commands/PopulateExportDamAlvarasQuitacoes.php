@@ -5,17 +5,17 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
-class PopulateExportDamAlvaras extends Command
+class PopulateExportDamAlvarasQuitacoes extends Command
 {
     /**
      * O nome e a assinatura do comando.
      */
-    protected $signature = 'db:populate-export-dam-alvaras {--prune : Limpa a tabela antes de popular}';
+    protected $signature = 'db:populate-export-quitacoes-dams {--prune : Limpa a tabela antes de popular}';
 
     /**
      * A descrição do comando.
      */
-    protected $description = 'Popula a tabela local export_dam_alvaras a partir de payment_parcel_identifiers do PostgreSQL';
+    protected $description = 'Popula a tabela local export_quitacoes_dams a partir de payment_entries do PostgreSQL';
 
     /**
      * IDs de Receita (revenues table) considerados Alvarás
@@ -31,61 +31,49 @@ class PopulateExportDamAlvaras extends Command
         $idsForSql = implode(',', self::ALVARAS_REVENUE_IDS);
 
         if ($prune) {
-            $this->info("Limpando tabela export_dam_alvaras...");
-            DB::table('export_dam_alvaras')->truncate();
+            $this->info("Limpando tabela export_quitacoes_dams...");
+            DB::table('export_quitacoes_dams')->truncate();
         } else {
             $this->info("Modo incremental: buscando apenas ausentes...");
         }
 
         $this->info("Buscando DAMs de Alvarás (IDs Receita: {$idsForSql})...");
 
-        // Esta query usa as tabelas reais do Nobe para encontrar DAMs gerados
         $query = <<<SQL
-            SELECT DISTINCT ON (ppi.id)
-                ppi.id as "IIDENTMIGRACAO",
-                pp.payment_id as "IID_LANCAMENTO",
-                ppi.created_at::date as "DDTCADASTRO",
-                ppi.created_at::time as "THRCADASTRO",
-                pp.parcel_number::varchar || '/' || 
-                (SELECT COUNT(*) FROM payment_parcels pp2 WHERE pp2.payment_id = pp.payment_id AND pp2.soft_delete = false) as "VPARCELA",
-                ppi.created_at::date as "DDTEMISSAO",
-                pp.due_date as "DDTVENCIMENTO",
-                pp.value as "NSUBTOTAL",
-                COALESCE(pp.correction, 0) as "NCMONETARIA",
-                COALESCE(pp.interest, 0) as "NJUROS",
-                COALESCE(pp.fine, 0) as "NMULTA",
-                0::numeric as "NTXEXPEDIENTE",
-                COALESCE(pp.discount, 0) as "NDESCONTO",
-                pp.total as "NTOTPAGAR",
-                ppi.document_number as "VNOSSONUMEROMIGRACAO",
-                ppi.digitable_line as "VTEXTOCODBARRAS",
-                p.status as "status",
-                REGEXP_REPLACE(ppi.digitable_line, '[^0-9a-zA-Z]', '', 'g') as "VNUMCODBARRAS"
+           SELECT DISTINCT ON (ppi.id)
+                ppi.id as "IIDENTDAM_MIGRACAO",
+                lp.payment_date as "DDTPAGTO",
+                pe.paid_value as "NVALPAGO",
+                lp.bank_account_id as "IID_BANCO",
+                pe.credit_date  as "DDTCREDITO",
+                null as "VAGENCIACONTA"
             FROM payment_parcel_identifiers ppi
             JOIN payment_parcels pp ON ppi.payable_id = pp.id AND ppi.payable_type = 'PaymentParcel'
             JOIN payments p ON p.id = pp.payment_id
             JOIN payment_taxables pt ON pt.payment_id = p.id AND pt.taxable_type = 'EconomicRegistration'
             JOIN economic_registrations er ON er.id = pt.taxable_id
             JOIN revenues r ON r.id = pt.revenue_id
+            JOIN payment_entries pe ON pe.payment_parcel_id = pp.id 
+            JOIN lower_payments lp ON lp.id = pe.parent_id AND pe.parent_type = 'LowerPayment'
+            LEFT JOIN lower_payment_payment_parcel_identifiers lpppi ON lpppi.payment_parcel_identifier_id = ppi.id AND lpppi.lower_payment_id = lp.id
             WHERE r.id IN ({$idsForSql})
               AND pp.soft_delete = false
-              AND p.status NOT IN (2,6,7,9)
-            ORDER BY ppi.id ASC
+            ORDER BY ppi.id ASC, (lpppi.id IS NOT NULL) DESC, lp.payment_date DESC
 SQL;
 
         $records = DB::select($query);
         $totalFound = count($records);
 
         if ($totalFound === 0) {
-            $this->warn("Nenhum DAM de alvará encontrado.");
+            $this->warn("Nenhuma quitação de DAM de alvará encontrada.");
             return Command::SUCCESS;
         }
 
         $this->info("Processando {$totalFound} registros...");
-        $this->chunkedInsert('export_dam_alvaras', $records, $prune);
+        $this->chunkedInsert('export_quitacoes_dams', $records, $prune);
 
-        $totalInserted = DB::table('export_dam_alvaras')->count();
-        $this->info("Sucesso! {$totalInserted} registros em export_dam_alvaras.");
+        $totalInserted = DB::table('export_quitacoes_dams')->count();
+        $this->info("Sucesso! {$totalInserted} registros em export_quitacoes_dams.");
 
         return Command::SUCCESS;
     }
@@ -96,11 +84,6 @@ SQL;
         foreach ($chunks as $chunk) {
             $data = array_map(function ($record) {
                 $item = (array) $record;
-
-                // Garante que o nosso número seja numérico ou nulo
-                if (isset($item['VNOSSONUMEROMIGRACAO'])) {
-                    $item['VNOSSONUMEROMIGRACAO'] = (int) preg_replace('/[^0-9]/', '', $item['VNOSSONUMEROMIGRACAO']);
-                }
 
                 $item['created_at'] = now();
                 $item['updated_at'] = now();
@@ -124,7 +107,7 @@ SQL;
                             DB::table($table)->insertOrIgnore($single);
                         }
                     } catch (\Exception $ex) {
-                        $this->error("Erro no IIDENTMIGRACAO {$single['IIDENTMIGRACAO']}: " . $ex->getMessage());
+                        $this->error("Erro no IIDENTDAM_MIGRACAO {$single['IIDENTDAM_MIGRACAO']}: " . $ex->getMessage());
                     }
                 }
             }
