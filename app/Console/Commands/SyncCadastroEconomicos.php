@@ -14,7 +14,7 @@ class SyncCadastroEconomicos extends Command
      * O nome e a assinatura do comando.
      */
     protected $signature = 'db:sync-cadastro-economicos 
-                            { --force=false : Força a sincronização mesmo se já estiver sincronizado}
+                            {--force : Força a sincronização mesmo se já estiver sincronizado}
                             {--company=57 : Código da empresa no banco principal} 
                             {--limit= : Limite de registros para sincronizar}';
 
@@ -28,7 +28,8 @@ class SyncCadastroEconomicos extends Command
      */
     public function handle()
     {
-        if (!$this->option('force')) {
+        if ($this->option('force')) {
+            $this->info("Resetando flag de sincronização em expor_cadastro_economicos...");
             DB::table('expor_cadastro_economicos')->update(['synced' => false]);
         }
 

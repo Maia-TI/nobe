@@ -14,7 +14,7 @@ class SyncContribuintes extends Command
      * O nome e a assinatura do comando.
      */
     protected $signature = 'db:sync-contribuintes 
-                            { --force=false : Força a sincronização mesmo se já estiver sincronizado}
+                            {--force : Força a sincronização mesmo se já estiver sincronizado}
                             {--company= : Código da empresa no banco principal} 
                             {--limit= : Limite de registros para sincronizar}
                             {--cnpj= : CNPJ específico para sincronizar}';
@@ -29,9 +29,8 @@ class SyncContribuintes extends Command
      */
     public function handle()
     {
-        $force = $this->option('force');
-
-        if ($force) {
+        if ($this->option('force')) {
+            $this->info("Resetando flag de sincronização em export_contribuintes...");
             DB::table('export_contribuintes')->update(['synced' => false]);
         }
 
