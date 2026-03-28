@@ -42,25 +42,39 @@ class PopulateExportCadastrosImobiliarios extends Command
         $idAreaEdifTotal = 679;
         $idTestadaReal = 553;
 
+        $idPavimento = 513; // Variável "Pavimento" (code 13) - valores são IDs de opções
+
         $query = <<<SQL
-            SELECT 
+            SELECT
                 p.id as "IID_BCI",
+                CASE WHEN p.status = 'active' THEN 1 ELSE 2 END as "ISTATUS",
                 CAST(NULLIF(SUBSTRING(SPLIT_PART(p.registration::text, '.', 1) FROM 1 FOR 2), '') AS INTEGER) as "IID_DISTRITO",
                 SUBSTRING(SPLIT_PART(p.registration::text, '.', 2) FROM 1 FOR 2) as "VSETOR",
                 SUBSTRING(SPLIT_PART(p.registration::text, '.', 3) FROM 1 FOR 5) as "VQUADRA",
                 SUBSTRING(SPLIT_PART(p.registration::text, '.', 4) FROM 1 FOR 4) as "VLOTE",
                 SUBSTRING(SPLIT_PART(p.registration::text, '.', 5) FROM 1 FOR 3) as "VUNIDADE",
-                properties.previous_registration as "VINSCANTERIOR",
+                SUBSTRING(p.previous_registration::text FROM 1 FOR 20) as "VINSCANTERIOR",
                 ua.street_id as "ICODLOGRADOURO",
                 ua.number as "INUMERO",
                 SUBSTRING(ua.complement FROM 1 FOR 30) as "VCOMPLEMENTO",
-                un.neighborhood_id as "ICODBAIRRO",
+                un.id as "ICODBAIRRO",
                 p.responsible_id as "IID_CONTRIBUINTE",
                 p.responsible_id as "IID_CONTRIBUINTEMORADOR",
                 COALESCE((SELECT CAST(v.value AS NUMERIC) FROM property_variable_values v WHERE v.property_id = p.id AND v.property_variable_setting_id = {$idAreaTerreno} LIMIT 1), 0) as "NAREALOTE",
                 COALESCE((SELECT CAST(v.value AS NUMERIC) FROM property_variable_values v WHERE v.property_id = p.id AND v.property_variable_setting_id = {$idAreaEdifTotal} LIMIT 1), 0) as "NAREAEDIFICACAO",
                 100.00 as "NFRACAOIDEAL",
-                1 as "INUMPAVIMENTOS"
+                COALESCE(
+                    CAST(NULLIF((
+                        SELECT pvso.code
+                        FROM property_variable_values pvv2
+                        JOIN property_variable_setting_options pvso ON pvso.id = CAST(pvv2.value AS INTEGER)
+                        WHERE pvv2.property_id = p.id AND pvv2.property_variable_setting_id = {$idPavimento}
+                          AND pvv2.value ~ '^\d+$'
+                        LIMIT 1
+                    ), '') AS INTEGER),
+                    1
+                ) as "INUMPAVIMENTOS",
+                CASE WHEN p.status = 'active' THEN 1 ELSE 2 END as "ISTATUS"
             FROM properties p
             LEFT JOIN unico_addresses ua ON ua.addressable_id = p.id AND ua.addressable_type = 'Property'
             LEFT JOIN unico_neighborhoods un ON un.id = ua.neighborhood_id
