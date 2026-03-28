@@ -64,7 +64,7 @@ class SyncCadastrosImobiliarios extends Command
         $failures = [];
 
         foreach ($results as $row) {
-            $stmtGrava = $pdo->prepare('SELECT RESULTADO, ID_BCI FROM MIGRACAO_GRAVAIMOVEL_1(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+            $stmtGrava = $pdo->prepare('SELECT RESULTADO, ID_BCI FROM MIGRACAO_BCIS_1(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
 
             $params = [
                 (int)$row->IID_BCI,                         // IID_BCI integer
@@ -79,15 +79,15 @@ class SyncCadastrosImobiliarios extends Command
                 (int)$row->INUMERO ?: null,                 // INUMERO integer
                 $row->VCOMPLEMENTO,                         // VCOMPLEMENTO varchar(30)
                 (int)$row->ICODBAIRRO ?: null,              // ICODBAIRRO integer
-                (int)$row->IID_CONTRIBUINTE ?: null,        // IID_CONTRIBUINTE integer
-                (int)$row->IID_CONTRIBUINTEMORADOR ?: null, // IID_CONTRIBUINTEMORADOR integer
+                (int)$row->IID_CONTRIBUINTE ?: 0,        // IID_CONTRIBUINTE integer
+                (int)$row->IID_CONTRIBUINTEMORADOR ?: 0, // IID_CONTRIBUINTEMORADOR integer
                 (float)$row->NAREALOTE,                     // NAREALOTE numeric(15,2)
                 (float)$row->NAREAEDIFICACAO,               // NAREAEDIFICACAO numeric(15,2)
                 (float)$row->NFRACAOIDEAL,                  // NFRACAOIDEAL numeric(15,2)
                 (int)$row->INUMPAVIMENTOS ?: null,          // INUMPAVIMENTOS integer
             ];
 
-            $sqlLog = 'SELECT RESULTADO, ID_BCI FROM MIGRACAO_GRAVAIMOVEL_1(' . implode(', ', array_map(function ($p) {
+            $sqlLog = 'SELECT RESULTADO, ID_BCI FROM MIGRACAO_BCIS_1(' . implode(', ', array_map(function ($p) {
                 return is_null($p) ? 'NULL' : "'" . str_replace("'", "''", (string)$p) . "'";
             }, $params)) . ')';
 
