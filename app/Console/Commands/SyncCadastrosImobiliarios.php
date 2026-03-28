@@ -64,10 +64,11 @@ class SyncCadastrosImobiliarios extends Command
         $failures = [];
 
         foreach ($results as $row) {
-            $stmtGrava = $pdo->prepare('SELECT RESULTADO, ID_BCI FROM MIGRACAO_GRAVAIMOVEL_1(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+            $stmtGrava = $pdo->prepare('SELECT RESULTADO, ID_BCI FROM MIGRACAO_GRAVAIMOVEL_1(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
 
             $params = [
                 (int)$row->IID_BCI,                         // IID_BCI integer
+                (int)$row->ISTATUS ?: 1,                    // ISTATUS integer (1=active, 2=inactive)
                 (int)$row->IID_DISTRITO ?: null,            // IID_DISTRITO integer
                 $row->VSETOR,                               // VSETOR varchar(2)
                 $row->VQUADRA,                              // VQUADRA varchar(5)

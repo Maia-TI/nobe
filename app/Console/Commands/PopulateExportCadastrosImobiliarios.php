@@ -36,13 +36,8 @@ class PopulateExportCadastrosImobiliarios extends Command
         $idVvt = $settings?->terrain_market_value_id ?? 0;
         $idVve = $settings?->construction_market_value_id ?? 0;
 
-        // Mapeamentos conhecidos
-        $idAreaTerreno = 554;
-        $idAreaEdifUnidade = 678;
-        $idAreaEdifTotal = 679;
-        $idTestadaReal = 553;
-
-        $idPavimento = 513; // Variável "Pavimento" (code 13) - valores são IDs de opções
+        // Mapeamentos conhecidos (IDs da instalação atual)
+        $idPavimento = 513;    // Pavimento (code 13) - valor é ID de opção
 
         $query = <<<SQL
             SELECT
@@ -60,8 +55,22 @@ class PopulateExportCadastrosImobiliarios extends Command
                 un.id as "ICODBAIRRO",
                 p.responsible_id as "IID_CONTRIBUINTE",
                 p.responsible_id as "IID_CONTRIBUINTEMORADOR",
-                COALESCE((SELECT CAST(v.value AS NUMERIC) FROM property_variable_values v WHERE v.property_id = p.id AND v.property_variable_setting_id = {$idAreaTerreno} LIMIT 1), 0) as "NAREALOTE",
-                COALESCE((SELECT CAST(v.value AS NUMERIC) FROM property_variable_values v WHERE v.property_id = p.id AND v.property_variable_setting_id = {$idAreaEdifTotal} LIMIT 1), 0) as "NAREAEDIFICACAO",
+                COALESCE((
+                    SELECT CAST(pvv1.value AS NUMERIC)
+                    FROM property_variable_values pvv1
+                    JOIN property_variable_settings pvs1 ON pvs1.id = pvv1.property_variable_setting_id
+                    WHERE pvv1.property_id = p.id AND pvs1.code = '1'
+                      AND pvv1.value IS NOT NULL AND pvv1.value != '' AND pvv1.value ~ '^[0-9]+(\.[0-9]+)?$'
+                    LIMIT 1
+                ), 0) as "NAREALOTE",
+                COALESCE((
+                    SELECT CAST(pvv3.value AS NUMERIC)
+                    FROM property_variable_values pvv3
+                    JOIN property_variable_settings pvs3 ON pvs3.id = pvv3.property_variable_setting_id
+                    WHERE pvv3.property_id = p.id AND pvs3.code = '2'
+                      AND pvv3.value IS NOT NULL AND pvv3.value != '' AND pvv3.value ~ '^[0-9]+(\.[0-9]+)?$'
+                    LIMIT 1
+                ), 0) as "NAREAEDIFICACAO",
                 100.00 as "NFRACAOIDEAL",
                 COALESCE(
                     CAST(NULLIF((
