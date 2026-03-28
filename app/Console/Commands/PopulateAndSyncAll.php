@@ -54,6 +54,16 @@ class PopulateAndSyncAll extends Command
                 'sync' => 'db:sync-dam-alvaras'
             ],
             [
+                'label' => 'CADASTRO IMOBILIÁRIO',
+                'populate' => 'db:populate-export-cadastros-imobiliarios',
+                'sync' => 'db:sync-cadastros-imobiliarios'
+            ],
+            [
+                'label' => 'LANÇAMENTOS IPTU',
+                'populate' => 'db:populate-export-lancamentos-iptu',
+                'sync' => 'db:sync-lancamentos-iptu'
+            ],
+            [
                 'label' => 'QUITAÇÕES',
                 'populate' => 'db:populate-export-quitacoes-dams',
                 'sync' => 'db:sync-quitacoes-dams'

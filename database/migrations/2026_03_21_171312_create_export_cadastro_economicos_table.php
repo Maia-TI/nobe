@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('expor_cadastro_economicos', function (Blueprint $table) {
+        Schema::create('export_cadastro_economicos', function (Blueprint $table) {
             $table->bigInteger('IID_CADECONOMICO')->primary();
             $table->bigInteger('IID_CONTRIBUINTE')->index();
             $table->integer('ISITUACAO')->nullable();
@@ -28,6 +28,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('expor_cadastro_economicos');
+        Schema::dropIfExists('export_cadastro_economicos');
     }
 };
