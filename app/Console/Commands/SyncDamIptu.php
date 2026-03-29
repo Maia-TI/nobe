@@ -73,7 +73,7 @@ class SyncDamIptu extends Command
 
         foreach ($results as $row) {
             // SP: MIGRACAO_DAMS_1(IIDENTMIGRACAO, DDTCADASTRO, THRCADASTRO, IID_LANCAMENTO, VPARCELA, DDTEMISSAO, DDTVENCIMENTO, NSUBTOTAL, NCMONETARIA, NJUROS, NMULTA, NTXEXPEDIENTE, NDESCONTO, NTOTPAGAR, VNOSSONUMEROMIGRACAO, VTEXTOCODBARRAS, VNUMCODBARRAS)
-            $stmt = $pdo->prepare("SELECT RESULTADO, ID_DAM FROM {$spName}(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt = $pdo->prepare("SELECT RESULTADO, ID_DAM FROM MIGRACAO_DAMS_1(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
 
             $params = [
                 (int)$row->IIDENTMIGRACAO,      // 1. IIDENTMIGRACAO bigint

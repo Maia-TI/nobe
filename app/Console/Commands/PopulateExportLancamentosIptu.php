@@ -62,6 +62,7 @@ class PopulateExportLancamentosIptu extends Command
             JOIN payments p ON p.id = pt.payment_id
             WHERE pt.revenue_id IN ({$idsForSql})
              AND p.status NOT IN (2,6,7,9)
+             AND p.payable_type = 'TaxCalculation'
             ORDER BY p.id ASC
 SQL;
 
