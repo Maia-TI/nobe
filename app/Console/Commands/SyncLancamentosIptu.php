@@ -14,6 +14,7 @@ class SyncLancamentosIptu extends Command
      * O nome e a assinatura do comando.
      */
     protected $signature = 'db:sync-lancamentos-iptu 
+                            {--limit : Limita o número de lançamentos a serem sincronizados}
                             {--force : Força a sincronização mesmo se já estiver sincronizado}
                             {--company=57 : Código da empresa no banco principal}';
 
@@ -35,9 +36,16 @@ class SyncLancamentosIptu extends Command
         $companyCode = $this->option('company') ?: 57;
         $this->info("Buscando lançamentos de IPTU não sincronizados...");
 
-        $results = DB::table('export_lancamentos_iptu')
-            ->where('synced', false)
-            ->get();
+        if ($this->option('limit')) {
+            $results = DB::table('export_lancamentos_iptu')
+                ->where('synced', false)
+                ->limit($this->option('limit'))
+                ->get();
+        } else {
+            $results = DB::table('export_lancamentos_iptu')
+                ->where('synced', false)
+                ->get();
+        }
 
         $total = count($results);
 

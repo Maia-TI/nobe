@@ -14,6 +14,8 @@ return new class extends Migration
         Schema::create('export_cadastros_imobiliarios', function (Blueprint $table) {
             $table->integer('IID_BCI')->primary();
             $table->integer('ISTATUS')->nullable();
+            $table->date('DDTCADASTRO')->nullable()->after('ISTATUS');
+
             $table->integer('IID_DISTRITO')->nullable();
             $table->string('VSETOR', 2)->nullable();
             $table->string('VQUADRA', 5)->nullable();
@@ -25,11 +27,18 @@ return new class extends Migration
             $table->string('VCOMPLEMENTO', 30)->nullable();
             $table->integer('ICODBAIRRO')->nullable();
             $table->integer('IID_CONTRIBUINTE')->nullable();
+            $table->decimal('NTESTADAPRINCIPAL', 15, 2)->nullable();
+
             $table->integer('IID_CONTRIBUINTEMORADOR')->nullable();
             $table->decimal('NAREALOTE', 15, 2)->nullable();
             $table->decimal('NAREAEDIFICACAO', 15, 2)->nullable();
+            $table->integer('IANOCONSTRUCAO')->nullable();
+
             $table->decimal('NFRACAOIDEAL', 15, 2)->nullable();
             $table->integer('INUMPAVIMENTOS')->nullable();
+            $table->decimal('NVVT', 15, 2)->nullable();
+            $table->decimal('NVVE', 15, 2)->nullable();
+            $table->decimal('NVALIPTU', 15, 2)->nullable();
 
             $table->boolean('synced')->default(false);
             $table->timestamps();

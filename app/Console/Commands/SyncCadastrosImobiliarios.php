@@ -64,27 +64,33 @@ class SyncCadastrosImobiliarios extends Command
         $failures = [];
 
         foreach ($results as $row) {
-            $stmtGrava = $pdo->prepare('SELECT RESULTADO, ID_BCI FROM MIGRACAO_BCIS_1(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+            $stmtGrava = $pdo->prepare('SELECT RESULTADO, ID_BCI FROM MIGRACAO_BCIS_1(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
 
             $params = [
-                (int)$row->IID_BCI,                         // IID_BCI integer
-                (int)$row->ISTATUS ?: 1,                    // ISTATUS integer (1=active, 2=inactive)
-                (int)$row->IID_DISTRITO ?: null,            // IID_DISTRITO integer
-                $row->VSETOR,                               // VSETOR varchar(2)
-                $row->VQUADRA,                              // VQUADRA varchar(5)
-                $row->VLOTE,                                // VLOTE varchar(4)
-                $row->VUNIDADE,                             // VUNIDADE varchar(3)
-                $row->VINSCANTERIOR,                        // VINSCANTERIOR varchar(20)
-                (int)$row->ICODLOGRADOURO ?: null,          // ICODLOGRADOURO integer
-                (int)$row->INUMERO ?: null,                 // INUMERO integer
-                $row->VCOMPLEMENTO,                         // VCOMPLEMENTO varchar(30)
-                (int)$row->ICODBAIRRO ?: null,              // ICODBAIRRO integer
-                (int)$row->IID_CONTRIBUINTE ?: 0,        // IID_CONTRIBUINTE integer
-                (int)$row->IID_CONTRIBUINTEMORADOR ?: 0, // IID_CONTRIBUINTEMORADOR integer
-                (float)$row->NAREALOTE,                     // NAREALOTE numeric(15,2)
-                (float)$row->NAREAEDIFICACAO,               // NAREAEDIFICACAO numeric(15,2)
-                (float)$row->NFRACAOIDEAL,                  // NFRACAOIDEAL numeric(15,2)
-                (int)$row->INUMPAVIMENTOS ?: null,          // INUMPAVIMENTOS integer
+                (int)$row->IID_BCI,                         // 1. IID_BCI integer
+                (int)$row->ISTATUS ?: 1,                    // 2. ISTATUS integer
+                $row->DDTCADASTRO,                         // 3. DDTCADASTRO date
+                (int)$row->IID_DISTRITO ?: null,            // 4. IID_DISTRITO integer
+                $row->VSETOR,                               // 5. VSETOR varchar(2)
+                $row->VQUADRA,                              // 6. VQUADRA varchar(5)
+                $row->VLOTE,                                // 7. VLOTE varchar(4)
+                $row->VUNIDADE,                             // 8. VUNIDADE varchar(3)
+                $row->VINSCANTERIOR,                        // 9. VINSCANTERIOR varchar(20)
+                (int)$row->ICODLOGRADOURO ?: null,          // 10. ICODLOGRADOURO integer
+                (int)$row->INUMERO ?: null,                 // 11. INUMERO integer
+                $row->VCOMPLEMENTO,                         // 12. VCOMPLEMENTO varchar(30)
+                (int)$row->ICODBAIRRO ?: null,              // 13. ICODBAIRRO integer
+                (int)$row->IID_CONTRIBUINTE ?: 0,           // 14. IID_CONTRIBUINTE integer
+                (int)$row->IID_CONTRIBUINTEMORADOR ?: 0,    // 15. IID_CONTRIBUINTEMORADOR integer
+                (float)$row->NTESTADAPRINCIPAL ?: 0,        // 16. NTESTADAPRINCIPAL numeric(15,2)
+                (float)$row->NAREALOTE,                     // 17. NAREALOTE numeric(15,2)
+                (float)$row->NAREAEDIFICACAO,               // 18. NAREAEDIFICACAO numeric(15,2)
+                (int)$row->IANOCONSTRUCAO ?: null,          // 19. IANOCONSTRUCAO integer
+                (float)$row->NFRACAOIDEAL,                  // 20. NFRACAOIDEAL numeric(15,2)
+                (int)$row->INUMPAVIMENTOS ?: null,          // 21. INUMPAVIMENTOS integer
+                (float)$row->NVVT ?: 0,                     // 22. NVVT numeric(15,2)
+                (float)$row->NVVE ?: 0,                     // 23. NVVE numeric(15,2)
+                (float)$row->NVALIPTU ?: 0,                 // 24. NVALIPTU numeric(15,2)
             ];
 
             $sqlLog = 'SELECT RESULTADO, ID_BCI FROM MIGRACAO_BCIS_1(' . implode(', ', array_map(function ($p) {
