@@ -31,6 +31,8 @@ return new class extends Migration
 
             $table->integer('IID_CONTRIBUINTEMORADOR')->nullable();
             $table->decimal('NAREALOTE', 15, 2)->nullable();
+            $table->decimal('NAREACONTRUIDAUNIDADE', 15, 2)->nullable();
+            $table->decimal('NTOTAREACONTRUIDA', 15, 2)->nullable();
             $table->decimal('NAREAEDIFICACAO', 15, 2)->nullable();
             $table->integer('IANOCONSTRUCAO')->nullable();
 

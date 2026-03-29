@@ -65,12 +65,29 @@ class PopulateExportCadastrosImobiliarios extends Command
                       AND pvv1.value IS NOT NULL AND pvv1.value != '' AND pvv1.value ~ '^[0-9]+(\.[0-9]+)?$'
                     LIMIT 1
                 ), 0) as "NAREALOTE",
+                /* NAREACONTRUIDAUNIDADE CODE 2 */
                 COALESCE((
+                    SELECT CAST(pvv2.value AS NUMERIC)
+                    FROM property_variable_values pvv2
+                    JOIN property_variable_settings pvs2 ON pvs2.id = pvv2.property_variable_setting_id
+                    WHERE pvv2.property_id = p.id AND pvs2.code = '2'
+                      AND pvv2.value IS NOT NULL AND pvv2.value != '' AND pvv2.value ~ '^[0-9]+(\.[0-9]+)?$'
+                    LIMIT 1
+                ), 0) as "NAREACONTRUIDAUNIDADE",
+                 COALESCE((
                     SELECT CAST(pvv3.value AS NUMERIC)
                     FROM property_variable_values pvv3
                     JOIN property_variable_settings pvs3 ON pvs3.id = pvv3.property_variable_setting_id
-                    WHERE pvv3.property_id = p.id AND pvs3.code = '2'
+                    WHERE pvv3.property_id = p.id AND pvs3.code = '3'
                       AND pvv3.value IS NOT NULL AND pvv3.value != '' AND pvv3.value ~ '^[0-9]+(\.[0-9]+)?$'
+                    LIMIT 1
+                ), 0) as "NTOTAREACONTRUIDA",
+                COALESCE((
+                    SELECT CAST(pvv4.value AS NUMERIC)
+                    FROM property_variable_values pvv4
+                    JOIN property_variable_settings pvs4 ON pvs4.id = pvv4.property_variable_setting_id
+                    WHERE pvv4.property_id = p.id AND pvs4.code = '2'
+                      AND pvv4.value IS NOT NULL AND pvv4.value != '' AND pvv4.value ~ '^[0-9]+(\.[0-9]+)?$'
                     LIMIT 1
                 ), 0) as "NAREAEDIFICACAO",
                 COALESCE((
