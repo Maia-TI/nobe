@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use App\Traits\InteractsWithFirebird;
+use Illuminate\Support\Facades\Log;
 
 class SyncCadastrosImobiliarios extends Command
 {
@@ -64,7 +65,7 @@ class SyncCadastrosImobiliarios extends Command
         $failures = [];
 
         foreach ($results as $row) {
-            $stmtGrava = $pdo->prepare('SELECT RESULTADO, ID_BCI FROM MIGRACAO_BCIS_1(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+            $stmtGrava = $pdo->prepare('SELECT RESULTADO, ID_BCI FROM MIGRACAO_BCIS_1(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
 
             $params = [
                 (int)$row->IID_BCI,                         // 1. IID_BCI integer
@@ -84,13 +85,14 @@ class SyncCadastrosImobiliarios extends Command
                 (int)$row->IID_CONTRIBUINTEMORADOR ?: 0,    // 15. IID_CONTRIBUINTEMORADOR integer
                 (float)$row->NTESTADAPRINCIPAL ?: 0,        // 16. NTESTADAPRINCIPAL numeric(15,2)
                 (float)$row->NAREALOTE,                     // 17. NAREALOTE numeric(15,2)
-                (float)$row->NAREAEDIFICACAO,               // 18. NAREAEDIFICACAO numeric(15,2)
-                (int)$row->IANOCONSTRUCAO ?: null,          // 19. IANOCONSTRUCAO integer
-                (float)$row->NFRACAOIDEAL,                  // 20. NFRACAOIDEAL numeric(15,2)
-                (int)$row->INUMPAVIMENTOS ?: null,          // 21. INUMPAVIMENTOS integer
-                (float)$row->NVVT ?: 0,                     // 22. NVVT numeric(15,2)
-                (float)$row->NVVE ?: 0,                     // 23. NVVE numeric(15,2)
-                (float)$row->NVALIPTU ?: 0,                 // 24. NVALIPTU numeric(15,2)
+                (float)($row->NAREACONTRUIDAUNIDADE) ?: 0,   // 18. NAREACONTRUIDAUNIDADE numeric(15,2)
+                (float)($row->NTOTAREACONTRUIDA) ?: 0,       // 19. NTOTAREACONTRUIDA numeric(15,2)
+                (int)$row->IANOCONSTRUCAO ?: null,          // 20. IANOCONSTRUCAO integer
+                (float)$row->NFRACAOIDEAL,                  // 21. NFRACAOIDEAL numeric(15,2)
+                (int)$row->INUMPAVIMENTOS ?: null,          // 22. INUMPAVIMENTOS integer
+                (float)$row->NVVT ?: 0,                     // 23. NVVT numeric(15,2)
+                (float)$row->NVVE ?: 0,                     // 24. NVVE numeric(15,2)
+                (float)$row->NVALIPTU ?: 0,                 // 25. NVALIPTU numeric(15,2)
             ];
 
             $sqlLog = 'SELECT RESULTADO, ID_BCI FROM MIGRACAO_BCIS_1(' . implode(', ', array_map(function ($p) {

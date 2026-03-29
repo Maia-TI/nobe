@@ -14,7 +14,7 @@ class SyncLancamentosIptu extends Command
      * O nome e a assinatura do comando.
      */
     protected $signature = 'db:sync-lancamentos-iptu 
-                            {--limit : Limita o número de lançamentos a serem sincronizados}
+                            {--limit= : Limita o número de lançamentos a serem sincronizados}
                             {--force : Força a sincronização mesmo se já estiver sincronizado}
                             {--company=57 : Código da empresa no banco principal}';
 

@@ -53,7 +53,7 @@ class PopulateExportCadastrosImobiliarios extends Command
                     SELECT CAST(pvv_t.value AS NUMERIC)
                     FROM property_variable_values pvv_t
                     JOIN property_variable_settings pvs_t ON pvs_t.id = pvv_t.property_variable_setting_id
-                    WHERE pvv_t.property_id = p.id AND pvs_t.code = '6'
+                    WHERE pvv_t.property_id = p.id AND pvs_t.code = '6' AND pvs_t.year = 2025
                       AND pvv_t.value IS NOT NULL AND pvv_t.value != '' AND pvv_t.value ~ '^[0-9]+(\.[0-9]+)?$'
                     LIMIT 1
                 ), 0) as "NTESTADAPRINCIPAL",
@@ -61,7 +61,7 @@ class PopulateExportCadastrosImobiliarios extends Command
                     SELECT CAST(pvv1.value AS NUMERIC)
                     FROM property_variable_values pvv1
                     JOIN property_variable_settings pvs1 ON pvs1.id = pvv1.property_variable_setting_id
-                    WHERE pvv1.property_id = p.id AND pvs1.code = '1'
+                    WHERE pvv1.property_id = p.id AND pvs1.code = '1' AND pvs1.year = 2025
                       AND pvv1.value IS NOT NULL AND pvv1.value != '' AND pvv1.value ~ '^[0-9]+(\.[0-9]+)?$'
                     LIMIT 1
                 ), 0) as "NAREALOTE",
@@ -70,7 +70,7 @@ class PopulateExportCadastrosImobiliarios extends Command
                     SELECT CAST(pvv2.value AS NUMERIC)
                     FROM property_variable_values pvv2
                     JOIN property_variable_settings pvs2 ON pvs2.id = pvv2.property_variable_setting_id
-                    WHERE pvv2.property_id = p.id AND pvs2.code = '2'
+                    WHERE pvv2.property_id = p.id AND pvs2.code = '2' AND pvs2.year = 2025
                       AND pvv2.value IS NOT NULL AND pvv2.value != '' AND pvv2.value ~ '^[0-9]+(\.[0-9]+)?$'
                     LIMIT 1
                 ), 0) as "NAREACONTRUIDAUNIDADE",
@@ -78,23 +78,15 @@ class PopulateExportCadastrosImobiliarios extends Command
                     SELECT CAST(pvv3.value AS NUMERIC)
                     FROM property_variable_values pvv3
                     JOIN property_variable_settings pvs3 ON pvs3.id = pvv3.property_variable_setting_id
-                    WHERE pvv3.property_id = p.id AND pvs3.code = '3'
+                    WHERE pvv3.property_id = p.id AND pvs3.code = '3' AND pvs3.year = 2025
                       AND pvv3.value IS NOT NULL AND pvv3.value != '' AND pvv3.value ~ '^[0-9]+(\.[0-9]+)?$'
                     LIMIT 1
-                ), 0) as "NTOTAREACONTRUIDA",
-                COALESCE((
-                    SELECT CAST(pvv4.value AS NUMERIC)
-                    FROM property_variable_values pvv4
-                    JOIN property_variable_settings pvs4 ON pvs4.id = pvv4.property_variable_setting_id
-                    WHERE pvv4.property_id = p.id AND pvs4.code = '2'
-                      AND pvv4.value IS NOT NULL AND pvv4.value != '' AND pvv4.value ~ '^[0-9]+(\.[0-9]+)?$'
-                    LIMIT 1
-                ), 0) as "NAREAEDIFICACAO",
+                ), 0) as "NTOTAREACONTRUIDA",           
                 COALESCE((
                     SELECT CAST(pvv_a.value AS INTEGER)
                     FROM property_variable_values pvv_a
                     JOIN property_variable_settings pvs_a ON pvs_a.id = pvv_a.property_variable_setting_id
-                    WHERE pvv_a.property_id = p.id AND pvs_a.code = '4'
+                    WHERE pvv_a.property_id = p.id AND pvs_a.code = '4' AND pvs_a.year = 2025
                       AND pvv_a.value IS NOT NULL AND pvv_a.value != '' AND pvv_a.value ~ '^\d+$'
                     LIMIT 1
                 ), 0) as "IANOCONSTRUCAO",
@@ -105,7 +97,7 @@ class PopulateExportCadastrosImobiliarios extends Command
                         FROM property_variable_values pvv2
                         JOIN property_variable_settings pvs_p ON pvs_p.id = pvv2.property_variable_setting_id
                         JOIN property_variable_setting_options pvso ON pvso.id = CAST(pvv2.value AS INTEGER)
-                        WHERE pvv2.property_id = p.id AND pvs_p.code = '13'
+                        WHERE pvv2.property_id = p.id AND pvs_p.code = '13' AND pvs_p.year = 2025
                           AND pvv2.value ~ '^\d+$'
                         LIMIT 1
                     ), '') AS INTEGER),
@@ -115,7 +107,7 @@ class PopulateExportCadastrosImobiliarios extends Command
                     SELECT CAST(pvv_vt.value AS NUMERIC)
                     FROM property_variable_values pvv_vt
                     JOIN property_variable_settings pvs_vt ON pvs_vt.id = pvv_vt.property_variable_setting_id
-                    WHERE pvv_vt.property_id = p.id AND pvs_vt.code = '42'
+                    WHERE pvv_vt.property_id = p.id AND pvs_vt.code = '42' AND pvs_vt.year = 2025
                       AND pvv_vt.value IS NOT NULL AND pvv_vt.value != '' AND pvv_vt.value ~ '^[0-9]+(\.[0-9]+)?$'
                     LIMIT 1
                 ), 0) as "NVVT",
@@ -123,7 +115,7 @@ class PopulateExportCadastrosImobiliarios extends Command
                     SELECT CAST(pvv_ve.value AS NUMERIC)
                     FROM property_variable_values pvv_ve
                     JOIN property_variable_settings pvs_ve ON pvs_ve.id = pvv_ve.property_variable_setting_id
-                    WHERE pvv_ve.property_id = p.id AND pvs_ve.code = '43'
+                    WHERE pvv_ve.property_id = p.id AND pvs_ve.code = '43' AND pvs_ve.year = 2025
                       AND pvv_ve.value IS NOT NULL AND pvv_ve.value != '' AND pvv_ve.value ~ '^[0-9]+(\.[0-9]+)?$'
                     LIMIT 1
                 ), 0) as "NVVE",
@@ -131,7 +123,7 @@ class PopulateExportCadastrosImobiliarios extends Command
                     SELECT CAST(pvv_iptu.value AS NUMERIC)
                     FROM property_variable_values pvv_iptu
                     JOIN property_variable_settings pvs_iptu ON pvs_iptu.id = pvv_iptu.property_variable_setting_id
-                    WHERE pvv_iptu.property_id = p.id AND pvs_iptu.code = '44'
+                    WHERE pvv_iptu.property_id = p.id AND pvs_iptu.code = '44' AND pvs_iptu.year = 2025
                       AND pvv_iptu.value IS NOT NULL AND pvv_iptu.value != '' AND pvv_iptu.value ~ '^[0-9]+(\.[0-9]+)?$'
                     LIMIT 1
                 ), 0) as "NVALIPTU"

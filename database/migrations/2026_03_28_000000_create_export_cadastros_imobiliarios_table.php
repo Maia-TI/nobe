@@ -33,7 +33,6 @@ return new class extends Migration
             $table->decimal('NAREALOTE', 15, 2)->nullable();
             $table->decimal('NAREACONTRUIDAUNIDADE', 15, 2)->nullable();
             $table->decimal('NTOTAREACONTRUIDA', 15, 2)->nullable();
-            $table->decimal('NAREAEDIFICACAO', 15, 2)->nullable();
             $table->integer('IANOCONSTRUCAO')->nullable();
 
             $table->decimal('NFRACAOIDEAL', 15, 2)->nullable();

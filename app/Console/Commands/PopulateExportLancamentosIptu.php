@@ -61,7 +61,7 @@ class PopulateExportLancamentosIptu extends Command
             JOIN payment_taxables pt ON pt.taxable_id = prop.id AND pt.taxable_type = 'Property'
             JOIN payments p ON p.id = pt.payment_id
             WHERE pt.revenue_id IN ({$idsForSql})
-            --   AND p.status NOT IN (2,6,7,9)
+             AND p.status NOT IN (2,6,7,9)
             ORDER BY p.id ASC
 SQL;
 
