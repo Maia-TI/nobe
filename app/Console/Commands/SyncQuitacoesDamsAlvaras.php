@@ -118,19 +118,30 @@ class SyncQuitacoesDamsAlvaras extends Command
                 } else {
                     $msg = ($resVal === 1) ? "DAM não encontrado / Não inserido (1)" : "Outro Erro ({$resVal})";
                     $this->error(" -> Falha: {$msg}");
+
+                    // Lazy Log SQL
+                    $sqlError = "SELECT RESULTADO FROM {$spName}(" . implode(', ', array_map(function ($p) {
+                        return is_null($p) ? 'NULL' : (is_string($p) ? "'" . str_replace("'", "''", $p) . "'" : $p);
+                    }, $params)) . ')';
+
                     $failures[] = [
                         'id' => $row->IIDENTDAM_MIGRACAO,
                         'erro' => $msg,
-                        'sql' => $sqlLog
+                        'sql' => $sqlError
                     ];
                 }
             } catch (\Exception $e) {
+                // Lazy Log SQL
+                $sqlError = "SELECT RESULTADO FROM {$spName}(" . implode(', ', array_map(function ($p) {
+                    return is_null($p) ? 'NULL' : (is_string($p) ? "'" . str_replace("'", "''", $p) . "'" : $p);
+                }, $params)) . ')';
+
                 $failures[] = [
                     'id' => $row->IIDENTDAM_MIGRACAO,
                     'erro' => (str_contains($e->getMessage(), 'violation of PRIMARY or UNIQUE KEY constraint') || str_contains($e->getMessage(), 'Integrity constraint violation'))
                         ? "Registro já presente ou erro de integridade."
                         : $e->getMessage(),
-                    'sql' => $sqlLog
+                    'sql' => $sqlError
                 ];
             }
 

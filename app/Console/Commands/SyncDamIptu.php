@@ -123,21 +123,32 @@ class SyncDamIptu extends Command
                     }
                 } else {
                     $resVal = $result ? json_encode($result) : 'NULO';
+                    
+                    // Gera o SQL apenas para o log de erro (Lazy Log)
+                    $sqlError = "SELECT RESULTADO, ID_DAM FROM MIGRACAO_DAMS_1(" . implode(', ', array_map(function ($p) {
+                        return is_null($p) ? 'NULL' : (is_string($p) ? "'" . str_replace("'", "''", $p) . "'" : $p);
+                    }, $params)) . ')';
+
                     $failures[] = [
                         'id' => $row->IIDENTMIGRACAO,
                         'lancamento' => $row->IID_LANCAMENTO,
                         'erro' => "Resposta SP: {$resVal}",
-                        'sql' => "SP Call Fail for ID: {$row->IIDENTMIGRACAO}"
+                        'sql' => $sqlError
                     ];
                 }
             } catch (\Exception $e) {
+                // Gera o SQL apenas para o log de erro (Lazy Log)
+                $sqlError = "SELECT RESULTADO, ID_DAM FROM MIGRACAO_DAMS_1(" . implode(', ', array_map(function ($p) {
+                    return is_null($p) ? 'NULL' : (is_string($p) ? "'" . str_replace("'", "''", $p) . "'" : $p);
+                }, $params)) . ')';
+
                 $failures[] = [
                     'id' => $row->IIDENTMIGRACAO,
                     'lancamento' => $row->IID_LANCAMENTO,
                     'erro' => (str_contains($e->getMessage(), 'violation of PRIMARY or UNIQUE KEY constraint') || str_contains($e->getMessage(), 'Integrity constraint violation')) 
                         ? "Registro já presente ou erro de integridade: " . substr($e->getMessage(), 0, 150)
                         : $e->getMessage(),
-                    'sql' => "Exception for ID: {$row->IIDENTMIGRACAO}"
+                    'sql' => $sqlError
                 ];
             }
             
