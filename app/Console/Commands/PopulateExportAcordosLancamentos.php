@@ -31,22 +31,33 @@ class PopulateExportAcordosLancamentos extends Command
             $this->info("Modo incremental: buscando apenas ausentes...");
         }
 
-        $this->info("Buscando Lançamentos de Origem dos Acordos (active_debts)...");
+        $this->info("Buscando Detalhes das Dívidas Originais (active_debts + payments)...");
 
         $query = <<<SQL
-            SELECT DISTINCT ON (ad.payment_id)
-                ad.payment_id as "IID_LANCAMENTO",
+            SELECT DISTINCT ON (ad.id)
+                ad.id as "IID_LANCAMENTO",
                 a.id as "IID_ACORDO",
-                COALESCE(p.year, extract(year from ad.due_date))::varchar as "VANOEXERCICIO",
-                p.total as "NVALIMPOSTOCALC",
-                p.status as "STATUS",
-                'Débito Original de Acordo - Protocolo ' || a.protocol_number as "DESCRICAO"
+                ad.created_at::date as "DDTCADASTRO",
+                p.id as "IID_LANCAMENTOORIGEM",
+                p.year::varchar as "VANOEXERCICIO",
+                pt.revenue_id as "IID_RECEITA",
+                substring('Ref. ' || r.name from 1 for 200) as "VESPECIFICACAO",
+                ad.due_date as "DDTVENCIMENTO",
+                ad.value as "NSUBTOTAL",
+                ad.correction as "NCMONETARIA",
+                ad.interest as "NJUROS",
+                ad.fine as "NMULTA",
+                0 as "NDESCONTO",
+                (ad.value + ad.correction + ad.interest + ad.fine) as "NTOTEXERCICIO",
+                p.status as "STATUS"
             FROM agreements a
             JOIN agreement_operations ao ON a.agreement_operation_id = ao.id
             JOIN active_debts_agreement_operations adao ON adao.agreement_operation_id = ao.id
             JOIN active_debts ad ON ad.id = adao.active_debt_id
             JOIN payments p ON p.id = ad.payment_id
-            ORDER BY ad.payment_id ASC, a.id DESC
+            JOIN payment_taxables pt ON pt.payment_id = p.id
+            JOIN revenues r ON r.id = pt.revenue_id
+            ORDER BY ad.id ASC
 SQL;
 
         $records = DB::select($query);

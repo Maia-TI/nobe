@@ -79,9 +79,14 @@ class PopulateAndSyncAll extends Command
                 'sync' => 'db:sync-quitacoes-dams-iptu'
             ],
             [
-                'label' => 'ACORDOS',
+                'label' => 'ACORDOS (CABEÇALHO)',
                 'populate' => 'db:populate-export-acordos',
                 'sync' => 'db:sync-acordos'
+            ],
+            [
+                'label' => 'ACORDOS (ITENS/ORIGEM)',
+                'populate' => 'db:populate-export-acordos-lancamentos',
+                'sync' => 'db:sync-acordos-lancamentos'
             ],
         ];
 
