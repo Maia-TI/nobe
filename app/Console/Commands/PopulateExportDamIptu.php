@@ -46,8 +46,7 @@ class PopulateExportDamIptu extends Command
                 pp.payment_id as "IID_LANCAMENTO",
                 ppi.created_at::date as "DDTCADASTRO",
                 ppi.created_at::time as "THRCADASTRO",
-                pp.parcel_number::varchar || '/' || 
-                (SELECT COUNT(*) FROM payment_parcels pp2 WHERE pp2.payment_id = pp.payment_id AND pp2.soft_delete = false) as "VPARCELA",
+                pp.parcel_number::varchar as "VPARCELA",
                 ppi.created_at::date as "DDTEMISSAO",
                 pp.due_date as "DDTVENCIMENTO",
                 pp.value as "NSUBTOTAL",
