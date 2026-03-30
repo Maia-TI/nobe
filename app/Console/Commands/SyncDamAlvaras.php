@@ -66,7 +66,7 @@ class SyncDamAlvaras extends Command
         $this->info("Processando {$total} DAMs...");
         $bar = $this->output->createProgressBar($total);
         $bar->start();
-        
+
         $synced = 0;
         $failures = [];
 
@@ -122,13 +122,13 @@ class SyncDamAlvaras extends Command
                 $failures[] = [
                     'id' => $row->IIDENTMIGRACAO,
                     'lancamento' => $row->IID_LANCAMENTO,
-                    'erro' => (str_contains($e->getMessage(), 'violation of PRIMARY or UNIQUE KEY constraint') || str_contains($e->getMessage(), 'Integrity constraint violation')) 
+                    'erro' => (str_contains($e->getMessage(), 'violation of PRIMARY or UNIQUE KEY constraint') || str_contains($e->getMessage(), 'Integrity constraint violation'))
                         ? "Registro já presente ou erro de integridade: " . substr($e->getMessage(), 0, 150)
                         : $e->getMessage(),
                     'sql' => $sqlLog
                 ];
             }
-            
+
             $bar->advance();
         }
 
@@ -137,7 +137,7 @@ class SyncDamAlvaras extends Command
 
         if (count($failures) > 0) {
             $this->error("Falhas detectadas (" . count($failures) . "):");
-            $this->table(['ID MIGRACAO', 'LANÇAMENTO', 'ERRO', 'SQL'], array_map(function($f) {
+            $this->table(['ID MIGRACAO', 'LANÇAMENTO', 'ERRO', 'SQL'], array_map(function ($f) {
                 return [$f['id'], $f['lancamento'], substr($f['erro'], 0, 80), $f['sql']];
             }, $failures));
         }
@@ -145,7 +145,7 @@ class SyncDamAlvaras extends Command
         $this->info("Sincronização concluída!");
         $this->line("Sucesso: <info>{$synced}</info>");
         $this->line("Falhas: <error>" . count($failures) . "</error>");
-        
+
         return Command::SUCCESS;
     }
 }
