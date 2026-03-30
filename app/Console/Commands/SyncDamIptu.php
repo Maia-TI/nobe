@@ -64,16 +64,22 @@ class SyncDamIptu extends Command
         $this->info("Conectando ao Firebird para a empresa {$companyCode}...");
         $pdo = $this->initializeFirebird($companyCode);
 
+        // Prepara a Stored Procedure uma única vez fora do loop
+        $stmt = $pdo->prepare("SELECT RESULTADO, ID_DAM FROM MIGRACAO_DAMS_1(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+
         $this->info("Processando {$total} DAMs...");
         $bar = $this->output->createProgressBar($total);
+        $bar->setFormat(" %current%/%max% [%bar%] %percent:3s%% | ETA: %estimated:-6s% | Speed: %message% | Mem: %memory:6s%");
+        $bar->setMessage('Iniciando...');
         $bar->start();
         
+        $startTime = microtime(true);
         $synced = 0;
         $failures = [];
+        $syncedIds = []; // IDs para atualização em lote no PostgreSQL
 
         foreach ($results as $row) {
-            // SP: MIGRACAO_DAMS_1(IIDENTMIGRACAO, DDTCADASTRO, THRCADASTRO, IID_LANCAMENTO, VPARCELA, DDTEMISSAO, DDTVENCIMENTO, NSUBTOTAL, NCMONETARIA, NJUROS, NMULTA, NTXEXPEDIENTE, NDESCONTO, NTOTPAGAR, VNOSSONUMEROMIGRACAO, VTEXTOCODBARRAS, VNUMCODBARRAS)
-            $stmt = $pdo->prepare("SELECT RESULTADO, ID_DAM FROM MIGRACAO_DAMS_1(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+
 
             $params = [
                 (int)$row->IIDENTMIGRACAO,      // 1. IIDENTMIGRACAO bigint
@@ -95,10 +101,6 @@ class SyncDamIptu extends Command
                 (string)$row->VNUMCODBARRAS     // 17. VNUMCODBARRAS DM_VARCHAR_50
             ];
 
-            $sqlLog = "SELECT RESULTADO, ID_DAM FROM {$spName}(" . implode(', ', array_map(function ($p) {
-                return is_null($p) ? 'NULL' : (is_string($p) ? "'" . str_replace("'", "''", $p) . "'" : $p);
-            }, $params)) . ')';
-
             try {
                 $stmt->execute($params);
                 $result = $stmt->fetch(\PDO::FETCH_OBJ);
@@ -106,18 +108,26 @@ class SyncDamIptu extends Command
                 $isSuccess = $result && isset($result->RESULTADO) && ($result->RESULTADO == 1 || $result->RESULTADO === 0 || $result->RESULTADO === '0');
 
                 if ($isSuccess) {
-                    DB::table('export_dam_iptu')
-                        ->where('IIDENTMIGRACAO', $row->IIDENTMIGRACAO)
-                        ->update(['synced' => true]);
-
+                    $syncedIds[] = $row->IIDENTMIGRACAO;
                     $synced++;
+
+                    // Atualiza o PostgreSQL em lotes de 200 registros
+                    if (count($syncedIds) >= 200) {
+                        DB::table('export_dam_iptu')->whereIn('IIDENTMIGRACAO', $syncedIds)->update(['synced' => true]);
+                        $syncedIds = [];
+                        
+                        // Atualiza métricas de velocidade a cada lote
+                        $elapsed = microtime(true) - $startTime;
+                        $rps = round($synced / $elapsed, 2);
+                        $bar->setMessage("{$rps} reg/s");
+                    }
                 } else {
                     $resVal = $result ? json_encode($result) : 'NULO';
                     $failures[] = [
                         'id' => $row->IIDENTMIGRACAO,
                         'lancamento' => $row->IID_LANCAMENTO,
                         'erro' => "Resposta SP: {$resVal}",
-                        'sql' => $sqlLog
+                        'sql' => "SP Call Fail for ID: {$row->IIDENTMIGRACAO}"
                     ];
                 }
             } catch (\Exception $e) {
@@ -127,11 +137,16 @@ class SyncDamIptu extends Command
                     'erro' => (str_contains($e->getMessage(), 'violation of PRIMARY or UNIQUE KEY constraint') || str_contains($e->getMessage(), 'Integrity constraint violation')) 
                         ? "Registro já presente ou erro de integridade: " . substr($e->getMessage(), 0, 150)
                         : $e->getMessage(),
-                    'sql' => $sqlLog
+                    'sql' => "Exception for ID: {$row->IIDENTMIGRACAO}"
                 ];
             }
             
             $bar->advance();
+        }
+
+        // Atualiza os registros restantes do último lote
+        if (!empty($syncedIds)) {
+            DB::table('export_dam_iptu')->whereIn('IIDENTMIGRACAO', $syncedIds)->update(['synced' => true]);
         }
 
         $bar->finish();

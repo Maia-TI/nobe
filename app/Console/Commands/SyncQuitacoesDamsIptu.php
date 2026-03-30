@@ -66,10 +66,14 @@ class SyncQuitacoesDamsIptu extends Command
 
         $this->info("Processando {$total} quitações...");
         $bar = $this->output->createProgressBar($total);
+        $bar->setFormat(" %current%/%max% [%bar%] %percent:3s%% | ETA: %estimated:-6s% | Speed: %message% | Mem: %memory:6s%");
+        $bar->setMessage('Iniciando...');
         $bar->start();
-
+        
+        $startTime = microtime(true);
         $synced = 0;
         $failures = [];
+        $syncedIds = []; // IDs para atualização em lote no PostgreSQL
 
         foreach ($results as $row) {
             $stmt = $pdo->prepare("SELECT RESULTADO FROM {$spName}(?, ?, ?, ?, ?, ?)");
@@ -95,11 +99,19 @@ class SyncQuitacoesDamsIptu extends Command
                 $isSuccess = ($resVal === 0);
 
                 if ($isSuccess) {
-                    DB::table('export_quitacoes_dams_iptu')
-                        ->where('IIDENTDAM_MIGRACAO', $row->IIDENTDAM_MIGRACAO)
-                        ->update(['synced' => true]);
-
+                    $syncedIds[] = $row->IIDENTDAM_MIGRACAO;
                     $synced++;
+
+                    // Atualiza o PostgreSQL em lotes de 200 registros
+                    if (count($syncedIds) >= 200) {
+                        DB::table('export_quitacoes_dams_iptu')->whereIn('IIDENTDAM_MIGRACAO', $syncedIds)->update(['synced' => true]);
+                        $syncedIds = [];
+                        
+                        // Atualiza métricas de velocidade a cada lote
+                        $elapsed = microtime(true) - $startTime;
+                        $rps = round($synced / $elapsed, 2);
+                        $bar->setMessage("{$rps} reg/s");
+                    }
                 } else {
                     $msg = ($resVal === 1) ? "DAM não encontrado / Não inserido (1)" : "Outro Erro ({$resVal})";
                     $failures[] = [
@@ -119,6 +131,11 @@ class SyncQuitacoesDamsIptu extends Command
             }
 
             $bar->advance();
+        }
+
+        // Atualiza os registros restantes do último lote
+        if (!empty($syncedIds)) {
+            DB::table('export_quitacoes_dams_iptu')->whereIn('IIDENTDAM_MIGRACAO', $syncedIds)->update(['synced' => true]);
         }
 
         $bar->finish();
