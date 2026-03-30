@@ -6,14 +6,14 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use App\Traits\InteractsWithFirebird;
 
-class SyncQuitacoesDams extends Command
+class SyncQuitacoesDamsAlvaras extends Command
 {
     use InteractsWithFirebird;
 
     /**
      * O nome e a assinatura do comando.
      */
-    protected $signature = 'db:sync-quitacoes-dams 
+    protected $signature = 'db:sync-quitacoes-dams-alvaras 
                             {--company=57 : Código da empresa no banco principal} 
                             {--force : Força a sincronização}
                             {--limit= : Limite de registros para sincronizar}';
@@ -37,13 +37,13 @@ class SyncQuitacoesDams extends Command
         $spName = self::SP_NAME;
 
         if ($this->option('force')) {
-            $this->info("Resetando flag de sincronização em export_quitacoes_dams...");
-            DB::table('export_quitacoes_dams')->update(['synced' => false]);
+            $this->info("Resetando flag de sincronização em export_quitacoes_dams_alvaras...");
+            DB::table('export_quitacoes_dams_alvaras')->update(['synced' => false]);
         }
 
-        $this->info("Iniciando busca de quitações em export_quitacoes_dams no PostgreSQL...");
+        $this->info("Iniciando busca de quitações em export_quitacoes_dams_alvaras no PostgreSQL...");
 
-        $query = DB::table('export_quitacoes_dams as eq')
+        $query = DB::table('export_quitacoes_dams_alvaras as eq')
             ->where('eq.synced', false)
             ->select('eq.*');
 
@@ -57,7 +57,7 @@ class SyncQuitacoesDams extends Command
         $total = count($results);
 
         if ($total === 0) {
-            $this->error("Nenhuma quitação pendente encontrada em export_quitacoes_dams.");
+            $this->error("Nenhuma quitação pendente encontrada em export_quitacoes_dams_alvaras.");
             return Command::SUCCESS;
         }
 
@@ -99,7 +99,7 @@ class SyncQuitacoesDams extends Command
 
                 if ($isSuccess) {
                     $this->info(" -> Sucesso: DAM encontrado e inserido (0)");
-                    DB::table('export_quitacoes_dams')
+                    DB::table('export_quitacoes_dams_alvaras')
                         ->where('IIDENTDAM_MIGRACAO', $row->IIDENTDAM_MIGRACAO)
                         ->update(['synced' => true]);
 

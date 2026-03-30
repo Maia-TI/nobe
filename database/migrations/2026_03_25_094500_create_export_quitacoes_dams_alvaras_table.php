@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('export_quitacoes_dams', function (Blueprint $table) {
+        Schema::create('export_quitacoes_dams_alvaras', function (Blueprint $table) {
             $table->bigInteger('IIDENTDAM_MIGRACAO')->primary();
             $table->date('DDTPAGTO')->nullable();
             $table->decimal('NVALPAGO', 15, 3)->default(0);
@@ -29,6 +29,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('export_quitacoes_dams');
+        Schema::dropIfExists('export_quitacoes_dams_alvaras');
     }
 };

@@ -10,12 +10,12 @@ class PopulateExportDamAlvarasQuitacoes extends Command
     /**
      * O nome e a assinatura do comando.
      */
-    protected $signature = 'db:populate-export-quitacoes-dams {--prune : Limpa a tabela antes de popular}';
+    protected $signature = 'db:populate-export-quitacoes-dams-alvaras {--prune : Limpa a tabela antes de popular}';
 
     /**
      * A descrição do comando.
      */
-    protected $description = 'Popula a tabela local export_quitacoes_dams a partir de payment_entries do PostgreSQL';
+    protected $description = 'Popula a tabela local export_quitacoes_dams_alvaras a partir de payment_entries do PostgreSQL';
 
     /**
      * IDs de Receita (revenues table) considerados Alvarás
@@ -31,8 +31,8 @@ class PopulateExportDamAlvarasQuitacoes extends Command
         $idsForSql = implode(',', self::ALVARAS_REVENUE_IDS);
 
         if ($prune) {
-            $this->info("Limpando tabela export_quitacoes_dams...");
-            DB::table('export_quitacoes_dams')->truncate();
+            $this->info("Limpando tabela export_quitacoes_dams_alvaras...");
+            DB::table('export_quitacoes_dams_alvaras')->truncate();
         } else {
             $this->info("Modo incremental: buscando apenas ausentes...");
         }
@@ -70,10 +70,10 @@ SQL;
         }
 
         $this->info("Processando {$totalFound} registros...");
-        $this->chunkedInsert('export_quitacoes_dams', $records, $prune);
+        $this->chunkedInsert('export_quitacoes_dams_alvaras', $records, $prune);
 
-        $totalInserted = DB::table('export_quitacoes_dams')->count();
-        $this->info("Sucesso! {$totalInserted} registros em export_quitacoes_dams.");
+        $totalInserted = DB::table('export_quitacoes_dams_alvaras')->count();
+        $this->info("Sucesso! {$totalInserted} registros em export_quitacoes_dams_alvaras.");
 
         return Command::SUCCESS;
     }

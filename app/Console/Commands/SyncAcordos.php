@@ -58,10 +58,6 @@ class SyncAcordos extends Command
         $failures = [];
 
         foreach ($results as $row) {
-            if ($row->IID_RECEITA) {
-                continue;
-            }
-
             // 🔁 Mapeamento de receita
             $receitaMap = [
                 5  => 16,
@@ -71,7 +67,7 @@ class SyncAcordos extends Command
                 50 => 270,
             ];
 
-            $receitaId = $receitaMap[$row->IID_RECEITA] ?? null;
+            $receitaId = $receitaMap[(int)$row->IID_RECEITA] ?? null;
 
             if (!$receitaId) {
                 $failures[] = [
