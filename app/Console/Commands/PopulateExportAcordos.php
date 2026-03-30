@@ -33,12 +33,6 @@ class PopulateExportAcordos extends Command
 
         $this->info("Buscando Acordos...");
 
-        /*   $table->integer('IID_ACORDO')->nullable();
-            $table->date('DDTACORDO')->nullable();
-            $table->integer('IID_CONTRIBUINTE')->nullable();
-            $table->integer('IID_RECEITA')->nullable();
-            $table->string('VDESCRICAO', 250)->nullable(); */
-
         $query = <<<SQL
            SELECT 
             a.id as "IID_ACORDO",
