@@ -14,7 +14,7 @@ class PopulateAndSyncAll extends Command
     /**
      * A descrição do comando.
      */
-    protected $description = 'Executa o ciclo completo de população e sincronização em ordem (Contribuintes, Cadastro Econômico, Lançamentos, DAMs e Quitações)';
+    protected $description = 'Executa o ciclo completo de população e sincronização em ordem (Contribuintes, Econômico, Imobiliário, Lançamentos, DAMs, Quitações e Acordos)';
 
     /**
      * Execute o comando.
@@ -54,6 +54,11 @@ class PopulateAndSyncAll extends Command
                 'sync' => 'db:sync-dam-alvaras'
             ],
             [
+                'label' => 'QUITAÇÕES DAMs ALVARÁS',
+                'populate' => 'db:populate-export-quitacoes-dams-alvaras',
+                'sync' => 'db:sync-quitacoes-dams-alvaras'
+            ],
+            [
                 'label' => 'CADASTRO IMOBILIÁRIO',
                 'populate' => 'db:populate-export-cadastros-imobiliarios',
                 'sync' => 'db:sync-cadastros-imobiliarios'
@@ -67,6 +72,16 @@ class PopulateAndSyncAll extends Command
                 'label' => 'DAMs IPTU',
                 'populate' => 'db:populate-export-dam-iptu',
                 'sync' => 'db:sync-dam-iptu'
+            ],
+            [
+                'label' => 'QUITAÇÕES DAMs IPTU',
+                'populate' => 'db:populate-export-quitacoes-dams-iptu',
+                'sync' => 'db:sync-quitacoes-dams-iptu'
+            ],
+            [
+                'label' => 'ACORDOS',
+                'populate' => 'db:populate-export-acordos',
+                'sync' => 'db:sync-acordos'
             ],
         ];
 
