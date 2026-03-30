@@ -10,30 +10,15 @@ class SyncAcordos extends Command
 {
     use InteractsWithFirebird;
 
-    /**
-     * O nome e a assinatura do comando.
-     */
     protected $signature = 'db:sync-acordos
                             {--company=57 : Código da empresa no banco principal} 
                             {--force : Força a sincronização}
                             {--limit= : Limite de registros para sincronizar}';
 
-    /**
-     * A descrição do comando.
-     * 
-     * 
-     */
     protected $description = 'Sincroniza os acordos com o Firebird via Stored Procedure';
 
-
-    /**
-     * Stored Procedure principal
-     */
     private const SP_NAME = 'MIGRACAO_PARCELAMENTOS_1';
 
-    /**
-     * Execute o comando.
-     */
     public function handle()
     {
         $companyCode = (int) $this->option('company');
@@ -41,9 +26,10 @@ class SyncAcordos extends Command
 
         if ($this->option('force')) {
             DB::table('export_acordos')->update(['synced' => false]);
+            $this->warn('⚠ Forçando reprocessamento de todos os registros.');
         }
 
-        $this->info("Iniciando busca de acordos em export_acordos no PostgreSQL...");
+        $this->info("Buscando acordos pendentes...");
 
         $query = DB::table('export_acordos as ea')
             ->where('ea.synced', false)
@@ -53,20 +39,18 @@ class SyncAcordos extends Command
             $query->limit((int) $this->option('limit'));
         }
 
-        $results = $query->orderBy('IID_ACORDO', 'asc')
-            ->get();
-
-        $total = count($results);
+        $results = $query->orderBy('IID_ACORDO', 'asc')->get();
+        $total = $results->count();
 
         if ($total === 0) {
-            $this->error("Nenhum acordo pendente encontrado em export_acordos.");
+            $this->info("Nenhum acordo pendente encontrado.");
             return Command::SUCCESS;
         }
 
-        $this->info("Conectando ao Firebird para a empresa {$companyCode}...");
+        $this->info("Conectando ao Firebird (empresa {$companyCode})...");
         $pdo = $this->initializeFirebird($companyCode);
 
-        $this->info("Processando {$total} DAMs...");
+        $this->info("Processando {$total} registros...");
         $bar = $this->output->createProgressBar($total);
         $bar->start();
 
@@ -74,14 +58,30 @@ class SyncAcordos extends Command
         $failures = [];
 
         foreach ($results as $row) {
-            $stmt = $pdo->prepare("SELECT RESULTADO, ID_PARCELAMENTO FROM {$spName}(?, ?, ?, ?, ?)");
+            if ($row->IID_RECEITA) {
+                continue;
+            }
 
+            // 🔁 Mapeamento de receita
             $receitaMap = [
-                5 => 16,
+                5  => 16,
                 12 => 1,
+                2 => 3,
+                67 => 256,
+                50 => 270,
             ];
 
-            $receitaId = $receitaMap[$row->IID_RECEITA];
+            $receitaId = $receitaMap[$row->IID_RECEITA] ?? null;
+
+            if (!$receitaId) {
+                $failures[] = [
+                    'id' => $row->IID_ACORDO,
+                    'erro' => "Receita não mapeada: {$row->IID_RECEITA}",
+                    'sql' => null
+                ];
+                $bar->advance();
+                continue;
+            }
 
             $params = [
                 $row->IID_ACORDO,
@@ -91,36 +91,57 @@ class SyncAcordos extends Command
                 $row->VDESCRICAO,
             ];
 
-            $sqlLog = "SELECT RESULTADO, ID_PARCELAMENTO FROM {$spName}(" . implode(', ', array_map(function ($p) {
-                return is_null($p) ? 'NULL' : (is_string($p) ? "'" . str_replace("'", "''", $p) . "'" : $p);
-            }, $params)) . ')';
+            // 🧾 Log SQL "simulado"
+            $sqlLog = "SELECT RESULTADO, ID_PARCELAMENTO FROM {$spName}(" .
+                implode(', ', array_map(function ($p) {
+                    if (is_null($p)) return 'NULL';
+                    if (is_string($p)) return "'" . str_replace("'", "''", $p) . "'";
+                    return $p;
+                }, $params)) . ')';
 
             try {
+
+                $stmt = $pdo->prepare("SELECT RESULTADO, ID_PARCELAMENTO FROM {$spName}(?, ?, ?, ?, ?)");
                 $stmt->execute($params);
+
                 $result = $stmt->fetch(\PDO::FETCH_OBJ);
 
-                $isSuccess = $result && isset($result->RESULTADO) && ($result->RESULTADO == 1 || $result->RESULTADO === 0 || $result->RESULTADO === '0');
+                $isSuccess = $result && isset($result->RESULTADO) && (
+                    $result->RESULTADO == 1 ||
+                    $result->RESULTADO === 0 ||
+                    $result->RESULTADO === '0'
+                );
 
                 if ($isSuccess) {
+
+                    // ✅ FIX PRINCIPAL AQUI
                     DB::table('export_acordos')
-                        ->where('IID_ACORDO', $row->ID_PARCELAMENTO)
+                        ->where('IID_ACORDO', $row->IID_ACORDO)
                         ->update(['synced' => true]);
 
                     $synced++;
+
+                    // Log leve de sucesso (opcional comentar depois)
+                    $this->line("✔ ID {$row->IID_ACORDO} | Ret: " . json_encode($result));
                 } else {
+
                     $resVal = $result ? json_encode($result) : 'NULO';
-                    // $failures[] = [
-                    //     'id' => $row->IIDENTMIGRACAO,
-                    //     'lancamento' => $row->IID_LANCAMENTO,
-                    //     'erro' => "Resposta SP: {$resVal}",
-                    //     'sql' => $sqlLog
-                    // ];
+
+                    $failures[] = [
+                        'id' => $row->IID_ACORDO,
+                        'erro' => "Resposta inválida da SP: {$resVal}",
+                        'sql' => $sqlLog
+                    ];
                 }
             } catch (\Exception $e) {
+
                 $failures[] = [
                     'id' => $row->IID_ACORDO,
-                    'erro' => (str_contains($e->getMessage(), 'violation of PRIMARY or UNIQUE KEY constraint') || str_contains($e->getMessage(), 'Integrity constraint violation'))
-                        ? "Registro já presente ou erro de integridade: " . substr($e->getMessage(), 0, 150)
+                    'erro' => (
+                        str_contains($e->getMessage(), 'violation') ||
+                        str_contains($e->getMessage(), 'Integrity')
+                    )
+                        ? "Duplicado / integridade: " . substr($e->getMessage(), 0, 150)
                         : $e->getMessage(),
                     'sql' => $sqlLog
                 ];
@@ -132,11 +153,20 @@ class SyncAcordos extends Command
         $bar->finish();
         $this->newLine(2);
 
+        // ❌ MOSTRAR FALHAS
         if (count($failures) > 0) {
             $this->error("Falhas detectadas (" . count($failures) . "):");
-            // $this->table(['ID MIGRACAO', 'LANÇAMENTO', 'ERRO', 'SQL'], array_map(function ($f) {
-            //     return [$f['id'], $f['lancamento'], substr($f['erro'], 0, 80), $f['sql']];
-            // }, $failures));
+
+            $this->table(
+                ['ID', 'ERRO', 'SQL'],
+                array_map(function ($f) {
+                    return [
+                        $f['id'],
+                        substr($f['erro'], 0, 120),
+                        $f['sql'] ? substr($f['sql'], 0, 120) : 'N/A'
+                    ];
+                }, $failures)
+            );
         }
 
         $this->info("Sincronização concluída!");
