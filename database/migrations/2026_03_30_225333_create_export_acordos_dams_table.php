@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('export_acordos_dams', function (Blueprint $table) {
-            $table->bigInteger('IID_DAM')->primary(); // IIDENTMIGRACAO
+            $table->bigInteger('IID_DAM')->primary(); 
             $table->integer('IID_ACORDO')->index();
             $table->bigInteger('IID_LANCAMENTO')->index();
             $table->date('DDTCADASTRO')->nullable();
