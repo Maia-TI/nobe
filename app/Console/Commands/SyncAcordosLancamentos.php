@@ -28,6 +28,7 @@ class SyncAcordosLancamentos extends Command
      */
     private const SP_NAME = 'MIGRACAO_PARCELAMENTO_LANCTO_1';
 
+
     /**
      * Execute o comando.
      */
@@ -37,20 +38,20 @@ class SyncAcordosLancamentos extends Command
         $spName = self::SP_NAME;
 
         if ($this->option('force')) {
-            $this->info("Resetando flags de sincronização em export_acordos_lancamentos...");
-            DB::table('export_acordos_lancamentos')->update(['synced' => false]);
+            $this->info("Resetando flags de sincronização em export_acordos_lancamentos_origem...");
+            DB::table('export_acordos_lancamentos_origem')->update(['synced' => false]);
         }
 
         $this->info("Buscando itens de acordos pendentes...");
 
-        $query = DB::table('export_acordos_lancamentos')
+        $query = DB::table('export_acordos_lancamentos_origem')
             ->where('synced', false);
 
         if ($this->option('limit')) {
             $query->limit((int) $this->option('limit'));
         }
 
-        $results = $query->orderBy('IID_LANCAMENTO', 'asc')->get();
+        $results = $query->orderBy('IID_LANCAMENTOORIGEM', 'asc')->get();
         $total = count($results);
 
         if ($total === 0) {
@@ -62,7 +63,7 @@ class SyncAcordosLancamentos extends Command
         $pdo = $this->initializeFirebird($companyCode);
 
         // Prepara o SQL da Stored Procedure com os 18 parâmetros
-        $sql = "SELECT RESULTADO, ID_PARCELAMENTO_LANCTO FROM {$spName}(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        $sql = "SELECT RESULTADO, ID_PARCELAMENTO_LANCTO FROM {$spName}(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         $stmt = $pdo->prepare($sql);
 
         $this->info("Processando {$total} registros...");
@@ -74,12 +75,11 @@ class SyncAcordosLancamentos extends Command
 
         foreach ($results as $row) {
             $params = [
-                (int) $row->IID_LANCAMENTO,         // 1. IID_LANCAMENTOACORDO
                 (int) $row->IID_ACORDO,             // 2. IID_ACORDO
                 (string) $row->DDTCADASTRO,         // 3. DDTCADASTRO
-                (int) $row->IID_LANCAMENTOORIGEM,   // 4. IID_LANCAMENTOORIGEM
+                (int) $row->IID_LANCAMENTOORIGEM,   // 4. IID_LANCAMENTOORIGEMORIGEM
                 (string) $row->VANOEXERCICIO,       // 5. VANOEXERCICIO
-                NULL,                               // 6. VMESEXERCICIO
+                (string) $row->VMESEXERCICIO,
                 1,                                  // 7. IID_RECEITA
                 (string) $row->VESPECIFICACAO,      // 8. VESPECIFICACAO
                 (string) $row->DDTVENCIMENTO,       // 9. DDTVENCIMENTO
@@ -93,7 +93,7 @@ class SyncAcordosLancamentos extends Command
 
             try {
                 $sqlLog = $this->generateSqlLog($sql, $params);
-                $this->info("\nExecutando: " . $sqlLog);
+                // $this->info("\nExecutando: " . $sqlLog);
 
                 $stmt->execute($params);
                 $result = $stmt->fetch(\PDO::FETCH_OBJ);
@@ -101,14 +101,14 @@ class SyncAcordosLancamentos extends Command
                 $isSuccess = $result && isset($result->RESULTADO) && ($result->RESULTADO == 1 || $result->RESULTADO === 0 || $result->RESULTADO === '0');
 
                 if ($isSuccess) {
-                    DB::table('export_acordos_lancamentos')
-                        ->where('IID_LANCAMENTO', $row->IID_LANCAMENTO)
+                    DB::table('export_acordos_lancamentos_origem')
+                        ->where('IID_LANCAMENTOORIGEM', $row->IID_LANCAMENTOORIGEM)
                         ->update(['synced' => true]);
                     $synced++;
                 } else {
                     $resVal = $result ? json_encode($result) : 'NULO';
                     $failures[] = [
-                        'id' => $row->IID_LANCAMENTO,
+                        'id' => $row->IID_LANCAMENTOORIGEM,
                         'acordo' => $row->IID_ACORDO,
                         'erro' => "Resposta SP: {$resVal}",
                         'sql' => $sqlLog
@@ -116,7 +116,7 @@ class SyncAcordosLancamentos extends Command
                 }
             } catch (\Exception $e) {
                 $failures[] = [
-                    'id' => $row->IID_LANCAMENTO,
+                    'id' => $row->IID_LANCAMENTOORIGEM,
                     'acordo' => $row->IID_ACORDO,
                     'erro' => (str_contains($e->getMessage(), 'violation') || str_contains($e->getMessage(), 'Integrity'))
                         ? "Erro de integridade/duplicidade: " . substr($e->getMessage(), 0, 100)

@@ -25,34 +25,44 @@ class PopulateExportAcordosLancamentosOrigem extends Command
         $prune = $this->option('prune');
 
         if ($prune) {
-            $this->info("Limpando tabela export_acordos_lancamentos...");
-            DB::table('export_acordos_lancamentos')->truncate();
+            $this->info("Limpando tabela export_acordos_lancamentos_origem...");
+            DB::table('export_acordos_lancamentos_origem')->truncate();
         } else {
             $this->info("Modo incremental: buscando apenas ausentes...");
         }
 
         $this->info("Buscando Detalhes das Dívidas Originais (active_debts + payments)...");
 
+
+       
+
         $query = <<<SQL
             SELECT DISTINCT ON (p.id)
-                p.id as "IID_LANCAMENTO",
                 origins.agreement_id as "IID_ACORDO",
-                p.created_at::date as "DDTCADASTRO",
+                p.created_at::date as "DDTCADASTRO",   
                 p.id as "IID_LANCAMENTOORIGEM",
                 p.year::varchar as "VANOEXERCICIO",
+                NULL as "VMESEXERCICIO",
                 pt.revenue_id as "IID_RECEITA",
-                substring('Ref. ' || r.name from 1 for 200) as "VESPECIFICACAO",
+                '' as "VESPECIFICACAO",
                 origins.origin_due_date as "DDTVENCIMENTO",
-                p.value as "NSUBTOTAL",
-                p.correction as "NCMONETARIA",
-                p.interest as "NJUROS",
-                p.fine as "NMULTA",
-                p.discount as "NDESCONTO",
-                p.total as "NTOTEXERCICIO",
-                p.status as "STATUS"
+                origins.value as "NSUBTOTAL",
+                origins.correction as "NCMONETARIA",
+                origins.interest as "NJUROS",
+                origins.fine as "NMULTA",
+                origins.discount as "NDESCONTO",
+                (origins.value + origins.correction + origins.interest + origins.fine - origins.discount) as "NTOTEXERCICIO"
             FROM (
-                -- Origem 1: Dívida Ativa
-                SELECT a1.id as agreement_id, p1.id as payment_id, ad.due_date as origin_due_date
+                -- Origem 1: Dívida Ativa (Extrair composição de active_debts)
+                SELECT 
+                    a1.id as agreement_id, 
+                    p1.id as payment_id, 
+                    ad.due_date as origin_due_date,
+                    ad.value as value,
+                    ad.correction as correction,
+                    ad.interest as interest,
+                    ad.fine as fine,
+                    (ad.value - ad.value_with_discount) as discount
                 FROM agreements a1
                 JOIN active_debts_agreement_operations adao ON adao.agreement_operation_id = a1.agreement_operation_id
                 JOIN active_debts ad ON ad.id = adao.active_debt_id
@@ -61,8 +71,16 @@ class PopulateExportAcordosLancamentosOrigem extends Command
                 
                 UNION
                 
-                -- Origem 2: Outros Débitos (IPTU Corrente, etc) através de payment_parcels
-                SELECT a2.id as agreement_id, p2.id as payment_id, pp.due_date as origin_due_date
+                -- Origem 2: Outros Débitos (IPTU Corrente, etc)
+                SELECT 
+                    a2.id as agreement_id, 
+                    p2.id as payment_id, 
+                    pp.due_date as origin_due_date,
+                    p2.value as value,
+                    p2.correction as correction,
+                    p2.interest as interest,
+                    p2.fine as fine,
+                    p2.discount as discount
                 FROM agreements a2
                 JOIN other_debts_agreement_operations odao ON odao.agreement_operation_id = a2.agreement_operation_id
                 JOIN payment_parcels pp ON pp.id = odao.payment_parcel_id
@@ -84,10 +102,10 @@ SQL;
         }
 
         $this->info("Processando {$totalFound} registros...");
-        $this->chunkedInsert('export_acordos_lancamentos', $records, $prune);
+        $this->chunkedInsert('export_acordos_lancamentos_origem', $records, $prune);
 
-        $totalInserted = DB::table('export_acordos_lancamentos')->count();
-        $this->info("Sucesso! {$totalInserted} lançamentos em export_acordos_lancamentos.");
+        $totalInserted = DB::table('export_acordos_lancamentos_origem')->count();
+        $this->info("Sucesso! {$totalInserted} lançamentos em export_acordos_lancamentos_origem.");
 
         return Command::SUCCESS;
     }
@@ -121,6 +139,7 @@ SQL;
                             DB::table($table)->insertOrIgnore($single);
                         }
                     } catch (\Exception $ex) {
+                        dd($ex->getMessage());
                         $this->error("Erro no IID_LANCAMENTO {$single['IID_LANCAMENTO']}: " . $ex->getMessage());
                     }
                 }

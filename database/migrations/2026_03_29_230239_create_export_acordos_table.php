@@ -14,6 +14,7 @@ return new class extends Migration
         Schema::create('export_acordos', function (Blueprint $table) {
             $table->id();
             $table->integer('IID_ACORDO')->nullable();
+            $table->integer('IID_LANCTOACORDO_MIGRACAO')->nullable();
             $table->date('DDTACORDO')->nullable();
             $table->integer('IID_CONTRIBUINTE')->nullable();
             $table->integer('IID_RECEITA')->nullable();

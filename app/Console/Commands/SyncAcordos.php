@@ -81,6 +81,7 @@ class SyncAcordos extends Command
 
             $params = [
                 $row->IID_ACORDO,
+                $row->IID_LANCTOACORDO_MIGRACAO,
                 $row->DDTACORDO,
                 $row->IID_CONTRIBUINTE,
                 $receitaId,
@@ -97,7 +98,7 @@ class SyncAcordos extends Command
 
             try {
 
-                $stmt = $pdo->prepare("SELECT RESULTADO, ID_PARCELAMENTO FROM {$spName}(?, ?, ?, ?, ?)");
+                $stmt = $pdo->prepare("SELECT RESULTADO, ID_PARCELAMENTO FROM {$spName}(?,?, ?, ?, ?, ?)");
                 $stmt->execute($params);
 
                 $result = $stmt->fetch(\PDO::FETCH_OBJ);

@@ -32,10 +32,12 @@ class PopulateExportAcordos extends Command
         }
 
         $this->info("Buscando Acordos...");
+        /* IID_LANCTOACORDO_MIGRACAO integer, */
 
         $query = <<<SQL
            SELECT 
             a.id as "IID_ACORDO",
+            p.id as "IID_LANCTOACORDO_MIGRACAO",
             a.created_at as "DDTACORDO",
             p.person_id as "IID_CONTRIBUINTE",
             pt.revenue_id as "IID_RECEITA",
@@ -47,7 +49,7 @@ class PopulateExportAcordos extends Command
         LEFT JOIN agreement_debts adebt ON adebt.agreement_id = a.id
         LEFT JOIN payments p ON p.id = adebt.payment_id
         LEFT JOIN payment_taxables pt ON pt.payment_id = p.id
-        GROUP BY a.id, a.protocol_number, a.status, pt.revenue_id, p.person_id
+        GROUP BY a.id, a.protocol_number, a.status, pt.revenue_id, p.person_id, p.id
         ORDER BY a.protocol_number
 SQL;
 
