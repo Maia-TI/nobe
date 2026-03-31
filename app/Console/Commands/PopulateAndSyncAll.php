@@ -88,6 +88,11 @@ class PopulateAndSyncAll extends Command
                 'populate' => 'db:populate-export-acordos-lancamentos',
                 'sync' => 'db:sync-acordos-lancamentos'
             ],
+            [
+                'label' => 'ACORDOS (DAMs/PARCELAS)',
+                'populate' => 'db:populate-export-acordos-dams',
+                'sync' => 'db:sync-acordos-dams'
+            ],
         ];
 
         foreach ($steps as $step) {

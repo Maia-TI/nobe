@@ -70,6 +70,7 @@ class PopulateExportDamAlvaras extends Command
             WHERE r.id IN ({$idsForSql})
               AND pp.soft_delete = false
               AND p.status NOT IN (2,6,7,9)
+              AND p.payable_type != 'Agreement'
             ORDER BY ppi.id ASC
 SQL;
 
