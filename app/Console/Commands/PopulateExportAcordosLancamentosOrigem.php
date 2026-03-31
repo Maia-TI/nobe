@@ -5,17 +5,17 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
-class PopulateExportAcordosLancamentos extends Command
+class PopulateExportAcordosLancamentosOrigem extends Command
 {
     /**
      * O nome e a assinatura do comando.
      */
-    protected $signature = 'db:populate-export-acordos-lancamentos {--prune : Limpa a tabela antes de popular}';
+    protected $signature = 'db:populate-export-acordos-lancamentos-origem {--prune : Limpa a tabela antes de popular}';
 
     /**
      * A descrição do comando.
      */
-    protected $description = 'Popula a tabela local export_acordos_lancamentos a partir de agreement_debts do PostgreSQL';
+    protected $description = 'Popula a tabela local export_acordos_lancamentos a partir das dívidas de origem do acordo';
 
     /**
      * Execute o comando.
