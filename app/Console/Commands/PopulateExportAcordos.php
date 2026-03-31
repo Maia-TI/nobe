@@ -42,8 +42,8 @@ class PopulateExportAcordos extends Command
             '' as "VDESCRICAO"
         FROM agreements a
         JOIN agreement_operations ao ON a.agreement_operation_id = ao.id
-        JOIN active_debts_agreement_operations adao ON adao.agreement_operation_id = ao.id
-        JOIN active_debts ad ON ad.id = adao.active_debt_id
+        LEFT JOIN active_debts_agreement_operations adao ON adao.agreement_operation_id = ao.id
+        LEFT JOIN active_debts ad ON ad.id = adao.active_debt_id
         LEFT JOIN agreement_debts adebt ON adebt.agreement_id = a.id
         LEFT JOIN payments p ON p.id = adebt.payment_id
         LEFT JOIN payment_taxables pt ON pt.payment_id = p.id

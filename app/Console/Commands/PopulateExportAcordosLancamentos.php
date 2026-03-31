@@ -34,30 +34,45 @@ class PopulateExportAcordosLancamentos extends Command
         $this->info("Buscando Detalhes das Dívidas Originais (active_debts + payments)...");
 
         $query = <<<SQL
-            SELECT DISTINCT ON (ad.id)
-                ad.id as "IID_LANCAMENTO",
-                a.id as "IID_ACORDO",
-                ad.created_at::date as "DDTCADASTRO",
+            SELECT DISTINCT ON (p.id)
+                p.id as "IID_LANCAMENTO",
+                origins.agreement_id as "IID_ACORDO",
+                p.created_at::date as "DDTCADASTRO",
                 p.id as "IID_LANCAMENTOORIGEM",
                 p.year::varchar as "VANOEXERCICIO",
                 pt.revenue_id as "IID_RECEITA",
                 substring('Ref. ' || r.name from 1 for 200) as "VESPECIFICACAO",
-                ad.due_date as "DDTVENCIMENTO",
-                ad.value as "NSUBTOTAL",
-                ad.correction as "NCMONETARIA",
-                ad.interest as "NJUROS",
-                ad.fine as "NMULTA",
-                0 as "NDESCONTO",
-                (ad.value + ad.correction + ad.interest + ad.fine) as "NTOTEXERCICIO",
+                origins.origin_due_date as "DDTVENCIMENTO",
+                p.value as "NSUBTOTAL",
+                p.correction as "NCMONETARIA",
+                p.interest as "NJUROS",
+                p.fine as "NMULTA",
+                p.discount as "NDESCONTO",
+                p.total as "NTOTEXERCICIO",
                 p.status as "STATUS"
-            FROM agreements a
-            JOIN agreement_operations ao ON a.agreement_operation_id = ao.id
-            JOIN active_debts_agreement_operations adao ON adao.agreement_operation_id = ao.id
-            JOIN active_debts ad ON ad.id = adao.active_debt_id
-            JOIN payments p ON p.id = ad.payment_id
+            FROM (
+                -- Origem 1: Dívida Ativa
+                SELECT a1.id as agreement_id, p1.id as payment_id, ad.due_date as origin_due_date
+                FROM agreements a1
+                JOIN active_debts_agreement_operations adao ON adao.agreement_operation_id = a1.agreement_operation_id
+                JOIN active_debts ad ON ad.id = adao.active_debt_id
+                JOIN payments p1 ON p1.id = ad.payment_id
+                WHERE p1.payable_type != 'Agreement'
+                
+                UNION
+                
+                -- Origem 2: Outros Débitos (IPTU Corrente, etc) através de payment_parcels
+                SELECT a2.id as agreement_id, p2.id as payment_id, pp.due_date as origin_due_date
+                FROM agreements a2
+                JOIN other_debts_agreement_operations odao ON odao.agreement_operation_id = a2.agreement_operation_id
+                JOIN payment_parcels pp ON pp.id = odao.payment_parcel_id
+                JOIN payments p2 ON p2.id = pp.payment_id
+                WHERE p2.payable_type != 'Agreement'
+            ) as origins
+            JOIN payments p ON p.id = origins.payment_id
             JOIN payment_taxables pt ON pt.payment_id = p.id
             JOIN revenues r ON r.id = pt.revenue_id
-            ORDER BY ad.id ASC
+            ORDER BY p.id ASC
 SQL;
 
         $records = DB::select($query);
