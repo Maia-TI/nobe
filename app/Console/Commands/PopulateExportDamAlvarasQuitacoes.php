@@ -58,6 +58,7 @@ class PopulateExportDamAlvarasQuitacoes extends Command
             LEFT JOIN lower_payment_payment_parcel_identifiers lpppi ON lpppi.payment_parcel_identifier_id = ppi.id AND lpppi.lower_payment_id = lp.id
             WHERE r.id IN ({$idsForSql})
               AND pp.soft_delete = false
+              AND p.payable_type != 'Agreement'
             ORDER BY ppi.id ASC, (lpppi.id IS NOT NULL) DESC, lp.payment_date DESC
 SQL;
 

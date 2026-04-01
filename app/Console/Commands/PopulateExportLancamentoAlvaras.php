@@ -54,7 +54,7 @@ class PopulateExportLancamentoAlvaras extends Command
             JOIN revenues r ON r.id = pt.revenue_id
             WHERE r.id IN ({$idsForSql})
             AND p.status NOT IN (2,6,7,9)
-            AND p.payable_type = 'TaxCalculation'
+            AND p.payable_type != 'Agreement'
             ORDER BY p.id ASC
 SQL;
 

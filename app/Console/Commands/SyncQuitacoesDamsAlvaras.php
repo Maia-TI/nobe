@@ -69,7 +69,7 @@ class SyncQuitacoesDamsAlvaras extends Command
         $bar->setFormat(" %current%/%max% [%bar%] %percent:3s%% | ETA: %estimated:-6s% | Speed: %message% | Mem: %memory:6s%");
         $bar->setMessage('Iniciando...');
         $bar->start();
-        
+
         $startTime = microtime(true);
         $synced = 0;
         $failures = [];
@@ -92,7 +92,7 @@ class SyncQuitacoesDamsAlvaras extends Command
             }, $params)) . ')';
 
 
-            $this->info($sqlLog);
+            // $this->info($sqlLog);
 
             try {
                 $stmt->execute($params);
@@ -109,7 +109,7 @@ class SyncQuitacoesDamsAlvaras extends Command
                     if (count($syncedIds) >= 200) {
                         DB::table('export_quitacoes_dams_alvaras')->whereIn('IIDENTDAM_MIGRACAO', $syncedIds)->update(['synced' => true]);
                         $syncedIds = [];
-                        
+
                         // Atualiza métricas de velocidade a cada lote
                         $elapsed = microtime(true) - $startTime;
                         $rps = round($synced / $elapsed, 2);

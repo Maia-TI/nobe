@@ -33,61 +33,61 @@ class PopulateAndSyncAll extends Command
         }
 
         $steps = [
-            [
-                'label' => 'CONTRIBUINTES',
-                'populate' => 'db:populate-export-contribuintes',
-                'sync' => 'db:sync-contribuintes'
-            ],
-            [
-                'label' => 'CADASTRO ECONÔMICO',
-                'populate' => 'db:populate-export-cadastro-economicos',
-                'sync' => 'db:sync-cadastro-economicos'
-            ],
-            [
-                'label' => 'LANÇAMENTOS ALVARÁS',
-                'populate' => 'db:populate-export-lancamento-alvaras',
-                'sync' => 'db:sync-lancamento-alvaras'
-            ],
-            [
-                'label' => 'DAMs ALVARÁS',
-                'populate' => 'db:populate-export-dam-alvaras',
-                'sync' => 'db:sync-dam-alvaras'
-            ],
-            [
-                'label' => 'QUITAÇÕES DAMs ALVARÁS',
-                'populate' => 'db:populate-export-quitacoes-dams-alvaras',
-                'sync' => 'db:sync-quitacoes-dams-alvaras'
-            ],
-            [
-                'label' => 'CADASTRO IMOBILIÁRIO',
-                'populate' => 'db:populate-export-cadastros-imobiliarios',
-                'sync' => 'db:sync-cadastros-imobiliarios'
-            ],
-            [
-                'label' => 'LANÇAMENTOS IPTU',
-                'populate' => 'db:populate-export-lancamentos-iptu',
-                'sync' => 'db:sync-lancamentos-iptu'
-            ],
-            [
-                'label' => 'DAMs IPTU',
-                'populate' => 'db:populate-export-dam-iptu',
-                'sync' => 'db:sync-dam-iptu'
-            ],
-            [
-                'label' => 'QUITAÇÕES DAMs IPTU',
-                'populate' => 'db:populate-export-quitacoes-dams-iptu',
-                'sync' => 'db:sync-quitacoes-dams-iptu'
-            ],
-            [
-                'label' => 'ACORDOS (CABEÇALHO)',
-                'populate' => 'db:populate-export-acordos',
-                'sync' => 'db:sync-acordos'
-            ],
-            [
-                'label' => 'ACORDOS (ITENS/ORIGEM)',
-                'populate' => 'db:populate-export-acordos-lancamentos',
-                'sync' => 'db:sync-acordos-lancamentos'
-            ],
+            // [
+            //     'label' => 'CONTRIBUINTES',
+            //     'populate' => 'db:populate-export-contribuintes',
+            //     'sync' => 'db:sync-contribuintes'
+            // ],
+            // [
+            //     'label' => 'CADASTRO ECONÔMICO',
+            //     'populate' => 'db:populate-export-cadastro-economicos',
+            //     'sync' => 'db:sync-cadastro-economicos'
+            // ],
+            // [
+            //     'label' => 'LANÇAMENTOS ALVARÁS',
+            //     'populate' => 'db:populate-export-lancamento-alvaras',
+            //     'sync' => 'db:sync-lancamento-alvaras'
+            // ],
+            // [
+            //     'label' => 'DAMs ALVARÁS',
+            //     'populate' => 'db:populate-export-dam-alvaras',
+            //     'sync' => 'db:sync-dam-alvaras'
+            // ],
+            // [
+            //     'label' => 'QUITAÇÕES DAMs ALVARÁS',
+            //     'populate' => 'db:populate-export-quitacoes-dams-alvaras',
+            //     'sync' => 'db:sync-quitacoes-dams-alvaras'
+            // ],
+            // [
+            //     'label' => 'CADASTRO IMOBILIÁRIO',
+            //     'populate' => 'db:populate-export-cadastros-imobiliarios',
+            //     'sync' => 'db:sync-cadastros-imobiliarios'
+            // ],
+            // [
+            //     'label' => 'LANÇAMENTOS IPTU',
+            //     'populate' => 'db:populate-export-lancamentos-iptu',
+            //     'sync' => 'db:sync-lancamentos-iptu'
+            // ],
+            // [
+            //     'label' => 'DAMs IPTU',
+            //     'populate' => 'db:populate-export-dam-iptu',
+            //     'sync' => 'db:sync-dam-iptu'
+            // ],
+            // [
+            //     'label' => 'QUITAÇÕES DAMs IPTU',
+            //     'populate' => 'db:populate-export-quitacoes-dams-iptu',
+            //     'sync' => 'db:sync-quitacoes-dams-iptu'
+            // ],
+            // [
+            //     'label' => 'ACORDOS (CABEÇALHO)',
+            //     'populate' => 'db:populate-export-acordos',
+            //     'sync' => 'db:sync-acordos'
+            // ],
+            // [
+            //     'label' => 'ACORDOS (ITENS/ORIGEM)',
+            //     'populate' => 'db:populate-export-acordos-lancamentos-origem',
+            //     'sync' => 'db:sync-acordos-lancamentos-origem'
+            // ],
             [
                 'label' => 'ACORDOS (DAMs/PARCELAS)',
                 'populate' => 'db:populate-export-acordos-dams',

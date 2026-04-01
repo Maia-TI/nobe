@@ -12,12 +12,13 @@ class DbPrepareRestore extends Command
      *
      * @var string
      */
-    protected $signature = 'db:prepare-restore {--force : Force the operation to run when in production}';
+    protected $signature = 'db:prepare-restore 
+                            {file? : Optional path to the .dump file}
+                            {--force : Force the operation to run when in production}
+                            {--sync : Run population and synchronization after restore}';
 
     /**
      * The console command description.
-     *
-     * @var string
      */
     protected $description = 'Wipes the public schema and prepares PostgreSQL with required extensions for a restore';
 
@@ -63,7 +64,7 @@ class DbPrepareRestore extends Command
 
             // Restore
             $this->newLine();
-            $backupPath = storage_path('app/private/pontadepedras-pa.dump');
+            $backupPath = $this->argument('file') ?? storage_path('app/private/pontadepedras-pa.dump');
             
             if (!file_exists($backupPath)) {
                 $this->error("Backup file not found at: {$backupPath}");
@@ -78,8 +79,6 @@ class DbPrepareRestore extends Command
             $dbUser = config('database.connections.pgsql.username', 'sail');
             $dbPass = config('database.connections.pgsql.password', 'password');
 
-            // REMOVED --clean and --if-exists because we already wiped the schema
-            // Adding --no-owner and --no-privileges to avoid permission issues
             $command = sprintf(
                 'PGPASSWORD=%s pg_restore -v -h %s -p %s -U %s -d %s --no-owner --no-privileges %s 2>&1',
                 escapeshellarg($dbPass),
@@ -98,12 +97,22 @@ class DbPrepareRestore extends Command
             // Execute the restore command
             passthru($command, $exitCode);
 
-            // Exit code 0 is perfect success.
-            // Exit code 1 usually means "success with warnings", 
-            // like "schema public already exists", which we expect.
             if ($exitCode === 0 || $exitCode === 1) {
                 $duration = round(microtime(true) - $startTime, 2);
-                $this->info("Database process COMPLETED in {$duration} seconds.");
+                $this->info("Database restore COMPLETED in {$duration} seconds.");
+
+                if ($this->option('sync')) {
+                    $this->newLine();
+                    $this->info('==================================================================');
+                    $this->info(' INICIANDO POPULAÇÃO E SINCRONIZAÇÃO');
+                    $this->info('==================================================================');
+                    
+                    $this->call('db:populate-and-sync', [
+                        '--prune' => true,
+                        '--force' => true,
+                    ]);
+                }
+
                 return 0;
             } else {
                 $this->error('Database restore FAILED with exit code: ' . $exitCode);

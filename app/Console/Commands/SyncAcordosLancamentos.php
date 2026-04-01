@@ -10,10 +10,7 @@ class SyncAcordosLancamentos extends Command
 {
     use InteractsWithFirebird;
 
-    /**
-     * O nome e a assinatura do comando.
-     */
-    protected $signature = 'db:sync-acordos-lancamentos 
+    protected $signature = 'db:sync-acordos-lancamentos-origem 
                             {--company=57 : Código da empresa no banco principal} 
                             {--force : Força a sincronização}
                             {--limit= : Limite de registros para sincronizar}';

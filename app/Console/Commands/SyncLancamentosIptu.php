@@ -130,7 +130,6 @@ class SyncLancamentosIptu extends Command
         $this->line("Falhas: <error>" . count($failures) . "</error>");
 
         if (count($failures) > 0) {
-            $this->warn("Exibindo as primeiras 10 falhas:");
             foreach (array_slice($failures, 0, 10) as $error) {
                 $this->error($error);
             }
