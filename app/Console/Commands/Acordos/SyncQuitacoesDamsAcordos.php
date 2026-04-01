@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Console\Commands\Alvaras;
+namespace App\Console\Commands\Acordos;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -37,13 +37,13 @@ class SyncQuitacoesDamsAcordos extends Command
         $spName = self::SP_NAME;
 
         if ($this->option('force')) {
-            $this->info("Resetando flag de sincronização em export_quitacoes_dams_acordos...");
-            DB::table('export_quitacoes_dams_acordos')->update(['synced' => false]);
+            $this->info("Resetando flag de sincronização em export_acordos_parcelas_quitacoes...");
+            DB::table('export_acordos_parcelas_quitacoes')->update(['synced' => false]);
         }
 
-        $this->info("Iniciando busca de quitações em export_quitacoes_dams_acordos no PostgreSQL...");
+        $this->info("Iniciando busca de quitações em export_acordos_parcelas_quitacoes no PostgreSQL...");
 
-        $query = DB::table('export_quitacoes_dams_acordos as eq')
+        $query = DB::table('export_acordos_parcelas_quitacoes as eq')
             ->where('eq.synced', false)
             ->select('eq.*');
 
@@ -57,7 +57,7 @@ class SyncQuitacoesDamsAcordos extends Command
         $total = count($results);
 
         if ($total === 0) {
-            $this->error("Nenhuma quitação pendente encontrada em export_quitacoes_dams_acordos.");
+            $this->error("Nenhuma quitação pendente encontrada em export_acordos_parcelas_quitacoes.");
             return Command::SUCCESS;
         }
 
@@ -101,7 +101,7 @@ class SyncQuitacoesDamsAcordos extends Command
                 $isSuccess = ($resVal === 0);
 
                 if ($isSuccess) {
-                    DB::table('export_quitacoes_dams_acordos')->where('IIDENTDAM_MIGRACAO', $row->IIDENTDAM_MIGRACAO)->update(['synced' => true]);
+                    DB::table('export_acordos_parcelas_quitacoes')->where('IIDENTDAM_MIGRACAO', $row->IIDENTDAM_MIGRACAO)->update(['synced' => true]);
                     $synced++;
 
                     // Atualiza métricas de velocidade

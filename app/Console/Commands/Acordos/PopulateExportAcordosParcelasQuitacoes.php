@@ -20,7 +20,7 @@ class PopulateExportAcordosParcelasQuitacoes extends Command
     /**
      * IDs de Receita (revenues table) considerados IPTU
      */
-    private const IPTU_REVENUE_IDS = [12, 27];
+    // private const IPTU_REVENUE_IDS = [12, 27];
 
     /**
      * Execute o comando.
@@ -28,7 +28,7 @@ class PopulateExportAcordosParcelasQuitacoes extends Command
     public function handle()
     {
         $prune = $this->option('prune');
-        $idsForSql = implode(',', self::IPTU_REVENUE_IDS);
+        // $idsForSql = implode(',', self::IPTU_REVENUE_IDS);
 
         if ($prune) {
             $this->info("Limpando tabela export_acordos_parcelas_quitacoes...");
@@ -51,9 +51,7 @@ class PopulateExportAcordosParcelasQuitacoes extends Command
             JOIN payment_taxables pt ON pt.payment_id = p.id AND pt.taxable_type = 'Property'
             JOIN payment_entries pe ON pe.payment_parcel_id = pp.id 
             JOIN lower_payments lp ON lp.id = pe.parent_id AND pe.parent_type = 'LowerPayment'
-            WHERE pt.revenue_id IN ({$idsForSql})
-              AND pp.soft_delete = false
-              AND p.payable_type = 'Agreement'
+            WHERE p.payable_type = 'Agreement'
             ORDER BY ppi.id ASC, lp.payment_date DESC
 SQL;
 
