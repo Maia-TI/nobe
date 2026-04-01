@@ -67,9 +67,6 @@ class SyncAcordosDams extends Command
         $this->info("Conectando ao Firebird para a empresa {$companyCode}...");
         $pdo = $this->initializeFirebird($companyCode);
 
-        // Prepara a Stored Procedure uma única vez fora do loop (17 parâmetros)
-        $stmt = $pdo->prepare("SELECT RESULTADO, ID_DAM FROM {$spName}(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-
         $this->info("Processando {$total} DAMs...");
         $bar = $this->output->createProgressBar($total);
         $bar->setFormat(" %current%/%max% [%bar%] %percent:3s%% | ETA: %estimated:-6s% | Speed: %message% | Mem: %memory:6s%");
@@ -79,9 +76,25 @@ class SyncAcordosDams extends Command
         $startTime = microtime(true);
         $synced = 0;
         $failures = [];
-        $syncedIds = []; // IDs para atualização em lote no PostgreSQL
 
         foreach ($results as $row) {
+            // Verifica se o cabeçalho do acordo já foi sincronizado
+            $originSynced = DB::table('export_acordos')
+                ->where('IID_LANCTOACORDO_MIGRACAO', $row->IID_LANCAMENTO)
+                ->where('synced', true)
+                ->exists();
+
+            if (!$originSynced) {
+                $failures[] = [
+                    'id' => $row->IID_DAM,
+                    'lancamento' => $row->IID_LANCAMENTO,
+                    'erro' => "Dependência não resolvida: Cabeçalho do Acordo vinculado ao lançamento {$row->IID_LANCAMENTO} não foi sincronizado.",
+                    'sql' => 'N/A'
+                ];
+                $bar->advance();
+                continue;
+            }
+
             $params = [
                 (int)$row->IID_DAM,             // 1. IIDENTMIGRACAO bigint
                 (string)$row->DDTCADASTRO,      // 2. DDTCADASTRO DM_DATE
@@ -103,27 +116,21 @@ class SyncAcordosDams extends Command
             ];
 
             try {
-                // dd sql
-
+                $bar->setMessage("ID: {$row->IID_DAM} | Lanc: {$row->IID_LANCAMENTO}");
+                $stmt = $pdo->prepare("SELECT RESULTADO, ID_DAM FROM {$spName}(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
                 $stmt->execute($params);
                 $result = $stmt->fetch(\PDO::FETCH_OBJ);
 
                 $isSuccess = $result && isset($result->RESULTADO) && ($result->RESULTADO == 1 || $result->RESULTADO === 0 || $result->RESULTADO === '0');
 
                 if ($isSuccess) {
-                    $syncedIds[] = $row->IID_DAM;
+                    DB::table('export_acordos_dams')->where('IID_DAM', $row->IID_DAM)->update(['synced' => true]);
                     $synced++;
 
-                    // Atualiza o PostgreSQL em lotes de 200 registros
-                    if (count($syncedIds) >= 200) {
-                        DB::table('export_acordos_dams')->whereIn('IID_DAM', $syncedIds)->update(['synced' => true]);
-                        $syncedIds = [];
-
-                        // Atualiza métricas de velocidade a cada lote
-                        $elapsed = microtime(true) - $startTime;
-                        $rps = round($synced / $elapsed, 2);
-                        $bar->setMessage("{$rps} reg/s");
-                    }
+                    // Atualiza métricas de velocidade
+                    $elapsed = microtime(true) - $startTime;
+                    $rps = round($synced / $elapsed, 2);
+                    $bar->setMessage("{$rps} reg/s");
                 } else {
                     $resVal = $result ? json_encode($result) : 'NULO';
 
@@ -156,11 +163,6 @@ class SyncAcordosDams extends Command
             }
 
             $bar->advance();
-        }
-
-        // Atualiza os registros restantes do último lote
-        if (!empty($syncedIds)) {
-            DB::table('export_acordos_dams')->whereIn('IID_DAM', $syncedIds)->update(['synced' => true]);
         }
 
         $bar->finish();

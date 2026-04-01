@@ -73,7 +73,6 @@ class SyncQuitacoesDamsAlvaras extends Command
         $startTime = microtime(true);
         $synced = 0;
         $failures = [];
-        $syncedIds = []; // IDs para atualização em lote no PostgreSQL
 
         foreach ($results as $row) {
             $stmt = $pdo->prepare("SELECT RESULTADO FROM {$spName}(?, ?, ?, ?, ?, ?)");
@@ -102,19 +101,13 @@ class SyncQuitacoesDamsAlvaras extends Command
                 $isSuccess = ($resVal === 0);
 
                 if ($isSuccess) {
-                    $syncedIds[] = $row->IIDENTDAM_MIGRACAO;
+                    DB::table('export_quitacoes_dams_alvaras')->where('IIDENTDAM_MIGRACAO', $row->IIDENTDAM_MIGRACAO)->update(['synced' => true]);
                     $synced++;
 
-                    // Atualiza o PostgreSQL em lotes de 200 registros
-                    if (count($syncedIds) >= 200) {
-                        DB::table('export_quitacoes_dams_alvaras')->whereIn('IIDENTDAM_MIGRACAO', $syncedIds)->update(['synced' => true]);
-                        $syncedIds = [];
-
-                        // Atualiza métricas de velocidade a cada lote
-                        $elapsed = microtime(true) - $startTime;
-                        $rps = round($synced / $elapsed, 2);
-                        $bar->setMessage("{$rps} reg/s");
-                    }
+                    // Atualiza métricas de velocidade
+                    $elapsed = microtime(true) - $startTime;
+                    $rps = round($synced / $elapsed, 2);
+                    $bar->setMessage("{$rps} reg/s");
                 } else {
                     $msg = ($resVal === 1) ? "DAM não encontrado / Não inserido (1)" : "Outro Erro ({$resVal})";
                     $this->error(" -> Falha: {$msg}");
@@ -146,11 +139,6 @@ class SyncQuitacoesDamsAlvaras extends Command
             }
 
             $bar->advance();
-        }
-
-        // Atualiza os registros restantes do último lote
-        if (!empty($syncedIds)) {
-            DB::table('export_quitacoes_dams_alvaras')->whereIn('IIDENTDAM_MIGRACAO', $syncedIds)->update(['synced' => true]);
         }
 
         $bar->finish();
